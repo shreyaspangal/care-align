@@ -104,6 +104,41 @@ auth.users (Supabase Auth)
 
 RLS enforces: coordinator = full read/write, patient = read-only on translations + summaries + tasks only.
 
+### Three concepts that look similar but are not
+
+| Concept | Table | Contains | Created by |
+|---------|-------|----------|------------|
+| Authentication | `auth.users` (Supabase-managed) | email, password hash, session | Supabase on signup |
+| Profile | `profiles` | name, role, language | `handle_new_user` trigger — automatic |
+| Access grant | `patient_access` | user_id + patient_id + role | coordinator explicitly, per patient |
+
+`profiles.role` = what kind of user they signed up as (their default).
+`patient_access.role` = what they are **for a specific patient** (coordinator or patient of that record).
+These can differ — a coordinator of one patient could be a patient in another record.
+
+### Enum types — what they belong to
+
+| Working on… | Relevant enums | Table |
+|-------------|---------------|-------|
+| Auth / login / signup | `user_role`, `preferred_language` | `profiles`, `patient_access` |
+| Patient record | `admission_status` | `patients` |
+| Episode lifecycle | `episode_status` | `episodes` |
+| Document upload + AI pipeline | `document_type`, `document_status` | `documents` |
+| AI output — actions | `action_for`, `action_status` | `document_actions` |
+| Task list | `task_category`, `task_phase`, `task_status` | `pending_tasks` |
+
+### Navigation — where to look when confused
+
+| Question | Go to |
+|----------|-------|
+| What fields does a table have? | `supabase/migrations/20240101000000_initial_schema.sql` — Section 3 |
+| Who can read/write this table? | Same file — Section 5 (search `ALTER TABLE <name> ENABLE`) |
+| How does a new user get a profile? | Same file — Section 4 (`handle_new_user` trigger) |
+| How does version increment safely? | Same file — Section 6 (`upsert_episode_summary` RPC) + `lib/db/episode-summaries.ts` |
+| Full ER diagram with rationale | `docs/DATA_MODEL.md` |
+| Which component uses which data? | `docs/COMPONENT_PLAN.md` |
+| AI pipeline step order | This file — AI Pipeline section above |
+
 ---
 
 ## AI Pipeline — Step Order
