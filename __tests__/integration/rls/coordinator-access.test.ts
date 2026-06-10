@@ -6,7 +6,7 @@ import { SEED } from '../../fixtures/seed-ids'
 // These tests require a real Supabase test project with seed data applied.
 // They are skipped when TEST_SUPABASE_URL is not set so the fast suite stays fast.
 const RLS_ENABLED = !!(
-  process.env.TEST_SUPABASE_URL && process.env.TEST_SUPABASE_ANON_KEY
+  process.env.TEST_SUPABASE_URL && process.env.TEST_SUPABASE_PUBLISHABLE_KEY
 )
 
 describe.skipIf(!RLS_ENABLED)('RLS — coordinator isolation', () => {
@@ -22,11 +22,11 @@ describe.skipIf(!RLS_ENABLED)('RLS — coordinator isolation', () => {
   beforeAll(async () => {
     coordA = createClient(
       process.env.TEST_SUPABASE_URL!,
-      process.env.TEST_SUPABASE_ANON_KEY!
+      process.env.TEST_SUPABASE_PUBLISHABLE_KEY!
     )
     coordB = createClient(
       process.env.TEST_SUPABASE_URL!,
-      process.env.TEST_SUPABASE_ANON_KEY!
+      process.env.TEST_SUPABASE_PUBLISHABLE_KEY!
     )
     await coordA.auth.signInWithPassword({
       email: SEED.coordA.email,

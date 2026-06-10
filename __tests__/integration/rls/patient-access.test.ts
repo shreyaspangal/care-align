@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { SEED } from '../../fixtures/seed-ids'
 
 const RLS_ENABLED = !!(
-  process.env.TEST_SUPABASE_URL && process.env.TEST_SUPABASE_ANON_KEY
+  process.env.TEST_SUPABASE_URL && process.env.TEST_SUPABASE_PUBLISHABLE_KEY
 )
 
 describe.skipIf(!RLS_ENABLED)('RLS — patient write restrictions', () => {
@@ -16,7 +16,7 @@ describe.skipIf(!RLS_ENABLED)('RLS — patient write restrictions', () => {
   beforeAll(async () => {
     patientClient = createClient(
       process.env.TEST_SUPABASE_URL!,
-      process.env.TEST_SUPABASE_ANON_KEY!
+      process.env.TEST_SUPABASE_PUBLISHABLE_KEY!
     )
     await patientClient.auth.signInWithPassword({
       email: SEED.patient.email,

@@ -28,8 +28,9 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files — .env.example is safe to commit (no real values), all others are not
 .env*
+!.env.example
 
 # typescript
 *.tsbuildinfo

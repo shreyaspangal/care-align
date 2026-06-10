@@ -253,7 +253,7 @@ User uploads document
 ```bash
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 SUPABASE_SERVICE_ROLE_KEY=      # Server-side only
 
 # Vercel Blob
@@ -430,7 +430,7 @@ import { Redis } from '@upstash/redis'
 export const uploadRateLimit = new Ratelimit({
   redis: Redis.fromEnv(),
   limiter: Ratelimit.slidingWindow(10, '1 h'),
-  prefix: 'kaagaz:upload',
+  prefix: 'carealign:upload',
 })
 ```
 
@@ -473,6 +473,88 @@ if (existing) {
 ```
 
 **Note:** Name-based deduplication is a heuristic — two different prescriptions could share the same filename. In V2, use file content hash (SHA-256) for reliable deduplication.
+
+---
+
+### ADR-011 — proxy.ts as the single auth and routing boundary
+
+**Decision:** All session validation and role-based routing lives in `proxy.ts`. No page or layout performs its own auth redirect.
+
+**Rationale:**
+- `proxy.ts` runs before every request — it is the only guaranteed interception point that covers pages, layouts, and API routes uniformly
+- Session token refresh must happen on every navigation, not just on specific layouts
+- `getUser()` validates the JWT with Supabase Auth servers — `getSession()` only reads the cookie without verification and is unsafe for routing decisions
+
+**The two Supabase clients — why both exist:**
+
+| Client | File | Used in | Why |
+|--------|------|---------|-----|
+| Server client | `lib/supabase/server.ts` | Server Components, Server Actions, Route Handlers | Reads/writes cookies via `next/headers`. Async (`await createClient()`). Queries run as the authenticated user — RLS applies automatically. |
+| Browser client | `lib/supabase/client.ts` | Client Components (`'use client'`) | Reads cookies from the browser. Same RLS applies. The publishable key is safe to expose — it grants nothing without a valid session. |
+
+**Request lifecycle — what happens on every navigation:**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Browser                                                            │
+│    │                                                                │
+│    │  GET /dashboard  (with session cookie)                         │
+│    ▼                                                                │
+├─────────────────────────────────────────────────────────────────────┤
+│  proxy.ts  (runs before the page, on every matched request)         │
+│    │                                                                │
+│    ├─ 1. createServerClient()  ← reads cookies from request         │
+│    │                                                                │
+│    ├─ 2. supabase.auth.getUser()                                    │
+│    │         └─► validates JWT with Supabase Auth servers           │
+│    │             (not getSession — that trusts the cookie blindly)  │
+│    │                                                                │
+│    ├─ [no user]  ──────────────────────► redirect → /login         │
+│    │                                                                │
+│    ├─ [user exists]                                                 │
+│    │      └─ query profiles.role                                    │
+│    │                                                                │
+│    │      ├─ patient on /dashboard  ──► redirect → /patient/[id]   │
+│    │      ├─ coordinator on /patient ─► redirect → /dashboard/[id] │
+│    │      └─ logged-in on /login ─────► redirect → /dashboard      │
+│    │                                                                │
+│    └─ 3. setAll() writes refreshed token into response cookies      │
+│              └─► browser gets updated token transparently           │
+│                  (prevents session expiry mid-session)              │
+│    │                                                                │
+│    └─ pass request through → page renders                           │
+├─────────────────────────────────────────────────────────────────────┤
+│  Page / Layout / Server Action                                      │
+│    └─ await createClient()  ← same refreshed session               │
+│         └─► all DB queries automatically scoped by RLS             │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Auth actions lifecycle (`actions/auth.ts`):**
+
+```
+register(formData)
+  │
+  ├─ supabase.auth.signUp({ email, password, data: { name, role } })
+  │         │
+  │         └─► Supabase inserts row into auth.users
+  │                   │
+  │                   └─► handle_new_user trigger fires  (migration Phase 2)
+  │                             └─► profiles row auto-created
+  │                                 (name + role from metadata)
+  └─ redirect('/dashboard')
+
+login(formData)
+  ├─ supabase.auth.signInWithPassword()
+  └─ redirect('/dashboard')
+
+logout()
+  ├─ supabase.auth.signOut()  ← clears session cookie
+  └─ redirect('/login')
+```
+
+**Why session refresh belongs in proxy.ts and not a layout:**
+A layout only runs when that specific route renders. `proxy.ts` runs on every navigation including API routes and redirects. Moving refresh to a layout would silently drop token refresh for any path that layout doesn't cover.
 
 ---
 

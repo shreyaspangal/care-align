@@ -96,7 +96,7 @@ export const claudeHandlers = [
 ```bash
 # .env.test
 NEXT_PUBLIC_SUPABASE_URL=<test-project-url>
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<test-anon-key>
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<test-anon-key>
 SUPABASE_SERVICE_ROLE_KEY=<test-service-role-key>
 AI_MODEL_TIER=development
 ANTHROPIC_API_KEY=<real-key-for-fixture-tests-only>
@@ -292,8 +292,8 @@ These tests use the real test Supabase project with real RLS policies. They veri
 import { createClient } from '@supabase/supabase-js'
 
 // Two separate user sessions
-const coordinatorA = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
-const coordinatorB = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+const coordinatorA = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!)
+const coordinatorB = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!)
 
 describe('RLS — coordinator isolation', () => {
   beforeAll(async () => {
@@ -669,7 +669,7 @@ jobs:
       - run: pnpm vitest run --exclude '**/__tests__/ai/fixture*' --exclude '**/__tests__/e2e/**'
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
       AI_MODEL_TIER: development
 
@@ -687,7 +687,7 @@ jobs:
       - run: pnpm exec playwright test
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
       BLOB_READ_WRITE_TOKEN: ${{ secrets.TEST_BLOB_TOKEN }}
       NEXT_PUBLIC_APP_URL: http://localhost:3000
