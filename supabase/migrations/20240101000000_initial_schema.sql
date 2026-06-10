@@ -1,7 +1,8 @@
 -- =============================================================================
 -- Patient Coordinator — Initial Schema
 -- Applies the full data model from docs/DATA_MODEL.md.
--- Order: enums → helper fn → tables (dependency order) → indexes → RLS → RPC
+-- Order: enums → tables (dependency order) → indexes → trigger → helper fn → RLS → RPC
+-- NOTE: helper fn moved after tables because it references patient_access.
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
@@ -54,22 +55,7 @@ CREATE TYPE preferred_language AS ENUM (
 -- V1: en only. Other values reserved for V3 Sarvam AI integration.
 
 -- -----------------------------------------------------------------------------
--- 2. Helper function used in RLS policies
---    SECURITY DEFINER so it can query patient_access without bypassing RLS
---    elsewhere — it only reads what is needed to verify access.
--- -----------------------------------------------------------------------------
-
-CREATE OR REPLACE FUNCTION user_has_patient_access(p_patient_id UUID)
-RETURNS BOOLEAN AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM patient_access
-    WHERE patient_access.patient_id = p_patient_id
-      AND patient_access.user_id = auth.uid()
-  );
-$$ LANGUAGE sql SECURITY DEFINER;
-
--- -----------------------------------------------------------------------------
--- 3. Tables (dependency order)
+-- 2. Tables (dependency order)
 -- -----------------------------------------------------------------------------
 
 -- profiles: one-to-one with auth.users. Application-level extension of auth.
@@ -256,7 +242,23 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- -----------------------------------------------------------------------------
--- 5. Row Level Security
+-- 5. Helper function used in RLS policies
+--    Moved here (after tables) because it references patient_access.
+--    SECURITY DEFINER so it can query patient_access without bypassing RLS
+--    elsewhere — it only reads what is needed to verify access.
+-- -----------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION user_has_patient_access(p_patient_id UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM patient_access
+    WHERE patient_access.patient_id = p_patient_id
+      AND patient_access.user_id = auth.uid()
+  );
+$$ LANGUAGE sql SECURITY DEFINER;
+
+-- -----------------------------------------------------------------------------
+-- 6. Row Level Security
 --    Every table has RLS enabled. Two tiers: coordinator (full access) and
 --    patient (read-only on translations, summaries, tasks only).
 -- -----------------------------------------------------------------------------
@@ -438,7 +440,7 @@ USING (
 );
 
 -- -----------------------------------------------------------------------------
--- 6. upsert_episode_summary RPC
+-- 7. upsert_episode_summary RPC
 --    Encapsulates the INSERT...ON CONFLICT with version increment.
 --    Called from lib/db/episode-summaries.ts — never use a plain .upsert()
 --    because the Supabase JS client would reset version to whatever is passed in.
