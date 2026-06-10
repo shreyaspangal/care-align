@@ -568,3 +568,61 @@ A layout only runs when that specific route renders. `proxy.ts` runs on every na
 6. **No sensitive IDs stored** — Aadhaar and PAN explicitly excluded from schema
 7. **Soft deletes** — no health data is permanently deleted
 8. **No audit log in V1** — who accessed which document is not logged. If compliance becomes a requirement before V2, add a `document_access_log` table.
+
+---
+
+## ADR-012 — Phase 5 File Upload Flow
+
+### Flow diagram
+
+```
+Coordinator clicks/drops a file
+         │
+         ▼
+DocumentUploadZone (Client Component)
+  ├─ validateDocumentFile()        ← MIME type + size check (client-side, instant feedback)
+  │   fail → show error state, "Try again"
+  │   pass ↓
+  ├─ setState({ status: 'uploading' })
+  │   shows TranslationStatusIndicator → "Translating..."
+  └─ uploadDocument(episodeId, formData)   ← Server Action
+             │
+             ▼
+      actions/upload-document.ts
+       1. getUser()                ← auth check
+       2. uploadRatelimit.limit()  ← 10/hr per user (Upstash Redis)
+       3. validateDocumentFile()   ← server-side re-validation (never trust client)
+       4. INSERT documents row     ← status: pending_classification, file_key: 'pending'
+       5. uploadToBlob()           ← Vercel Blob, private
+                                      path: documents/{episodeId}/{docId}/{filename}
+           fail → UPDATE status: failed, return error (record kept, never deleted)
+           pass ↓
+       6. UPDATE documents.file_key ← stores pathname only, never the full URL
+       7. return { ok: true, documentId }
+             │
+             ▼
+DocumentUploadZone
+  ├─ ok: true  → success state ("uploaded, AI running…") + onUploadComplete(documentId)
+  └─ ok: false → error state with message + "Try again"
+
+File access — coordinator views a document:
+GET /api/documents/[documentId]/file
+  1. getUser()       ← auth check
+  2. SELECT file_key FROM documents WHERE id = documentId
+                     ← RLS enforces coordinator-only access
+  3. getSignedBlobUrl(file_key)   ← Vercel Blob short-lived signed URL
+  4. 302 redirect → signed URL   ← raw Blob URL never returned to client
+```
+
+### Key decisions
+
+- **Client-side validation runs first** — instant feedback without a network round-trip.
+  Server Action re-validates independently — client input is never trusted.
+- **Document record is created before Blob upload** — gives us an ID for the Blob path.
+  If upload fails, the record stays with `status: failed`. Never deleted.
+- **`file_key` stores Blob pathname only** — full URL changes when Blob store migrates.
+  Signed URLs are generated fresh on every file access request.
+- **Validation lives in `lib/storage/validate.ts`** — shared between client component
+  and Server Action. Single source of truth for allowed MIME types and max size.
+- **Rate limit is per user ID** — prevents a single coordinator from triggering
+  runaway Claude API costs if they accidentally loop an upload.

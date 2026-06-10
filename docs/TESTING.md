@@ -727,6 +727,20 @@ Seed data is deterministic — same UUIDs every run (use fixed seeds). Store the
 
 ---
 
+## Storybook play test cache misses
+
+Storybook interaction tests (`.stories.tsx` with `play:`) run inside a Vite browser environment. If they fail with `Failed to fetch dynamically imported module` despite the component being correct, the Vite module cache is stale — not a code bug.
+
+Fix:
+```bash
+rm -rf node_modules/.cache/storybook
+pnpm test
+```
+
+This happens after: switching branches with different Storybook versions, upgrading `@storybook/*` packages, or first run after a long gap. The error is always a fetch failure on a cache path, never on the component source file itself.
+
+---
+
 ## Running Tests
 
 ```bash

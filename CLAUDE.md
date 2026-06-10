@@ -4,6 +4,26 @@ This file is read at the start of every AI-assisted coding session. It gives eno
 
 ---
 
+## Where new rules and docs belong — decide before you write
+
+Before adding anything here or to `docs/`, pick the right location:
+
+| What you're documenting | Right place | Wrong place |
+|------------------------|-------------|-------------|
+| A rule that causes a **silent, irreversible bug** if missed (auth grants, RLS, version counter) | **CLAUDE.md** | docs/ |
+| A **security boundary** that must hold on every turn (no client-side AI calls, no raw Blob URLs) | **CLAUDE.md** | docs/ |
+| A **scope constraint** that prevents entire feature categories from being built (V1 boundary) | **CLAUDE.md** | docs/ |
+| A **breaking-change gotcha** for this stack (Next 16 async params, proxy.ts) | **CLAUDE.md** | docs/ |
+| A **pattern with a worked example** that's only needed when doing that specific work (forms, migrations, AI prompts) | **docs/FORMS.md, docs/AI_BEHAVIOUR.md, etc.** — pointer in CLAUDE.md | CLAUDE.md inline |
+| A **catalogue or reference** (component props, enum values, ER diagram) | **docs/** | CLAUDE.md |
+| Something already **enforced by a lint script or hook** | Pointer only in CLAUDE.md | Full detail in CLAUDE.md |
+| **Environment variables** | **.env.example** | CLAUDE.md |
+| **Testing setup** | **docs/TESTING.md** | CLAUDE.md |
+
+**The test:** If removing the rule from CLAUDE.md means the first line of code in a new session could silently be wrong or cause a production incident — keep it here. If it would only matter once the relevant file is open — a pointer is enough.
+
+---
+
 ## What This Product Does
 
 A coordinator uploads medical documents (prescriptions, lab reports, bills, discharge summaries) from an active hospitalisation. Claude classifies and translates each one into plain language. The result is a living episode summary that both the coordinator and the patient can read and understand.
@@ -35,6 +55,7 @@ This is Next **16**, not 15. `AGENTS.md` warns the same. The traps that bite:
 3. **Dynamic route `params` is a Promise.** `async function GET(req, { params }: { params: Promise<{ id: string }> })`
    then `const { id } = await params`. Same for `page.tsx` props.
 4. **`revalidateTag` needs a `cacheLife` arg**; new `updateTag`/`refresh` exist for Server Actions.
+5. **`useActionState` signature is `(_prev, formData)`**, not `(formData)`. Returns `[state, action, isPending]`. Forgetting `_prev` shifts the args and `formData` becomes the previous state object — silent wrong behaviour, no type error.
 
 Path alias `@/*` → repo root (no `src/`). When unsure, read `node_modules/next/dist/docs/`.
 
@@ -56,6 +77,33 @@ Path alias `@/*` → repo root (no `src/`). When unsure, read `node_modules/next
 | Authenticated Blob file serving | `app/api/documents/[documentId]/file/route.ts` |
 | Episode summary upsert (version-safe) | `lib/db/episode-summaries.ts` |
 | Auth trigger for profile creation | `supabase/migrations/` |
+
+---
+
+## Supabase Migration Checklist — Run Every Time a Table is Created
+
+Supabase requires **two separate access control layers**. RLS policies alone are not enough — table-level GRANTs must also be present or authenticated users and triggers will be silently denied.
+
+Every migration that creates a new table **must** include:
+
+```sql
+-- Required alongside RLS — without this, authenticated users cannot access the table at all
+GRANT SELECT, INSERT, UPDATE, DELETE ON table_name TO authenticated;
+GRANT ALL ON table_name TO service_role;
+```
+
+For any trigger that writes to `public.*` tables (like `handle_new_user`):
+
+```sql
+-- supabase_auth_admin is the role that runs auth triggers — it needs explicit INSERT
+GRANT INSERT ON public.profiles TO supabase_auth_admin;
+GRANT EXECUTE ON FUNCTION public.handle_new_user() TO supabase_auth_admin;
+ALTER FUNCTION public.handle_new_user() OWNER TO postgres;
+```
+
+**Root cause of "Database error saving new user":** Missing `GRANT INSERT ON public.profiles TO supabase_auth_admin`. The trigger ran but had no table-level permission to insert, aborting the entire `auth.users` creation.
+
+**Chicken-and-egg pattern — patient creation:** RLS on `patients` requires a `patient_access` row to exist, but that row can't exist until the patient is created. Solution: use `createServiceClient()` (service role, bypasses RLS) for the initial `patients` insert, then immediately insert the `patient_access` row. All subsequent queries use the regular `createClient()` and RLS works correctly from that point. See `actions/create-patient.ts`.
 
 ---
 
@@ -155,28 +203,33 @@ If any step throws: set `document.status = 'failed'`, return error to UI, do not
 
 ---
 
-## Testing — What Runs Where
+## Architecture Enforcement — Machine-Backed Rules
 
-| Suite | Command | Uses real Claude? | Runs in CI |
-|-------|---------|------------------|------------|
-| Unit + integration | `pnpm test` | No (MSW) | Every PR |
-| E2E (Playwright) | `pnpm test:e2e` | No | After unit pass |
-| AI fixtures + boundary | `pnpm test:ai` | Yes | Main branch only |
+Run `pnpm lint:arch` before committing (CI enforces the same). Three checks:
 
-RLS integration tests use the test Supabase project. Seed data lives in `scripts/seed-test-db.ts`.
+| Check | Command | What it catches |
+|-------|---------|-----------------|
+| Stories | `pnpm lint:stories` | Missing or stale `.stories.tsx` alongside any component |
+| Primitives | `pnpm lint:primitives` | Raw `<button>`/`<input>`/`<label>` in composites or features |
+| Schemas | `pnpm lint:schemas` | Server actions without `.safeParse()`; client forms missing any of the 7-rule contract; raw `console.*` in server files |
+
+A PostToolUse hook in `.claude/settings.json` also fires inline warnings when you write a component or form file.
+
+### Stop conditions
+
+- **New component, no story pattern yet** — stop, propose interface + story states, wait for sign-off.
+- **Primitive missing from Shadcn** — stop, propose it in `docs/COMPONENT_PLAN.md`, wait for sign-off.
+- **Schema missing for a new action/form** — stop, define it in `lib/validation/schemas.ts` first.
+
+### Key pointers
+
+- Form handling contract (7 rules, worked example): `docs/FORMS.md`
+- Component primitives catalogue: `docs/COMPONENT_PLAN.md`
+- Logging pattern (`createLogger`): `lib/logger.ts`
+- All schemas (single source of truth): `lib/validation/schemas.ts`
 
 ---
 
-## Environment Variables
+## Testing and Environment
 
-```bash
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
-SUPABASE_SERVICE_ROLE_KEY=       # server only
-BLOB_READ_WRITE_TOKEN=           # server only
-ANTHROPIC_API_KEY=               # server only
-UPSTASH_REDIS_REST_URL=          # server only
-UPSTASH_REDIS_REST_TOKEN=        # server only
-NEXT_PUBLIC_APP_URL=
-AI_MODEL_TIER=development        # 'development' = Haiku, 'production' = Sonnet
-```
+Testing detail: `docs/TESTING.md`. Environment variables: `.env.example`.

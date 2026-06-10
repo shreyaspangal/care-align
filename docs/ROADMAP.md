@@ -29,6 +29,11 @@ Take medical documents the coordinator already has and make them understandable 
 - Regional language support
 - Voice interaction
 
+**Known deferred improvements (decided during Phase 5–6 build, land in Phase 7):**
+- Patient can view their own uploaded documents alongside translations — needs a SELECT policy on `documents` for `pa.role = 'patient'`, file route update, and a "View original" toggle in the patient UI. Deferred because the patient view UI doesn't exist yet; slot in during Phase 7.
+- Form state: extract `SubmitButton` using `useFormStatus` (React 19) to remove `isPending` prop drilling from the 3 existing forms. Low risk, ~1–2 hours, land alongside Phase 7 form work.
+- Server-side magic-byte MIME validation: use `file-type` library to validate file headers, not just `file.type` (which is browser-reported and spoofable). Integration point: `validateDocumentFile` in `lib/storage/validate.ts`. Deferred until closer to real users — V1 coordinators are trusted.
+
 **Exit criteria — V1 is done when:**
 1. Upload prescription, lab report, and discharge summary from real records → patient reads output and tells coordinator what to do tomorrow without explanation
 2. One non-developer hospital coordinator uses it without instructions and finds it useful within 5 minutes

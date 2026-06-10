@@ -1,0 +1,21 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "statusMessage": "Checking for colocated story…",
+            "command": "file=$(jq -r '.tool_input.file_path // .tool_response.filePath // empty'); if echo \"$file\" | grep -qE 'components/.+\\.tsx$' && ! echo \"$file\" | grep -q '\\.stories\\.tsx$'; then story=\"${file%.tsx}.stories.tsx\"; if [ ! -f \"$story\" ]; then echo \"{\\\"systemMessage\\\": \\\"\\u26a0 No story found for $(basename $file) \\u2014 add a .stories.tsx alongside it.\\\"}\"; fi; fi"
+          },
+          {
+            "type": "command",
+            "statusMessage": "Checking form contract…",
+            "command": "file=$(jq -r '.tool_input.file_path // .tool_response.filePath // empty'); if [ -z \"$file\" ] || [ ! -f \"$file\" ]; then exit 0; fi; if ! grep -q \"'use client'\" \"$file\" 2>/dev/null; then exit 0; fi; if ! grep -q '<form' \"$file\" 2>/dev/null; then exit 0; fi; if ! grep -q '@/actions/' \"$file\" 2>/dev/null; then exit 0; fi; missing=''; grep -q '@/lib/validation/schemas' \"$file\" || missing=\"${missing}|import schema from @/lib/validation/schemas\"; grep -q '\\.safeParse(' \"$file\" || missing=\"${missing}|call .safeParse() in onSubmit\"; grep -q 'onSubmit' \"$file\" || missing=\"${missing}|add onSubmit handler to form\"; grep -q 'preventDefault' \"$file\" || missing=\"${missing}|call e.preventDefault() on invalid\"; grep -q 'fieldErrors' \"$file\" || missing=\"${missing}|add fieldErrors state (per-field)\"; grep -q 'aria-invalid' \"$file\" || missing=\"${missing}|set aria-invalid on inputs\"; grep -q 'setFieldErrors' \"$file\" || missing=\"${missing}|clear field error in onChange\"; if [ -n \"$missing\" ]; then msg=$(echo \"$missing\" | tr '|' '\\n' | grep -v '^$' | sed 's/^/  - /' | tr '\\n' '|' | sed 's/|$//' | sed 's/|/\\n/g'); echo \"{\\\"systemMessage\\\": \\\"\\u26a0 Form contract violations in $(basename $file) — see CLAUDE.md §3b:\\n$msg\\\"}\"; fi"
+          }
+        ]
+      }
+    ]
+  }
+}
