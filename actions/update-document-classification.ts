@@ -16,6 +16,10 @@ const UpdateClassificationSchema = z.object({
   document_date: z.string().nullable(),
 })
 
+// Exported so DocumentClassificationEditor can type its props from the single source of truth
+// rather than redeclaring the same shape independently.
+export type ClassificationFields = z.infer<typeof UpdateClassificationSchema>
+
 export type UpdateClassificationResult =
   | { ok: true }
   | { ok: false; error: string }

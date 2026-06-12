@@ -4,14 +4,9 @@ import { generateText, Output, NoOutputGeneratedError } from 'ai'
 import { anthropic } from '@ai-sdk/anthropic'
 import { AI_MODELS } from './models'
 import { EpisodeSummarySchema, type EpisodeSummary } from './schemas'
-import type { DocumentType } from '@/lib/types/domain'
+import type { DocumentSummaryInput } from '@/lib/types/domain'
 
-export type DocumentSummaryInput = {
-  plain_language: string
-  what_it_means: string
-  document_type: DocumentType | 'document'
-  document_date: string | null
-}
+export type { DocumentSummaryInput }
 
 const buildPrompt = (
   patientName: string,

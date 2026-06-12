@@ -33,6 +33,15 @@ export type DocumentStatus =
 
 export type TranslationStatus = 'pending' | 'translating' | 'complete' | 'failed'
 
+// ─── AI pipeline data shapes ──────────────────────────────────────────────────
+
+export type DocumentSummaryInput = {
+  plain_language: string
+  what_it_means: string
+  document_type: DocumentType | 'document'
+  document_date: string | null
+}
+
 // ─── Actions & Tasks ──────────────────────────────────────────────────────────
 
 export type ActionFor = 'coordinator' | 'patient' | 'both'

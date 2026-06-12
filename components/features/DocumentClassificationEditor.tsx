@@ -6,20 +6,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { DocumentTypeTag } from '@/components/primitives/DocumentTypeTag'
+import { DOCUMENT_TYPES, DOCUMENT_TYPE_LABELS } from '@/lib/validation/schemas'
+import type { DocumentType } from '@/lib/types/domain'
 import {
-  DOCUMENT_TYPES,
-  DOCUMENT_TYPE_LABELS,
-  type DocumentType,
-} from '@/lib/validation/schemas'
-import { updateDocumentClassification } from '@/actions/update-document-classification'
-
-type ClassificationFields = {
-  type: DocumentType
-  purpose: string | null
-  source_hospital: string | null
-  source_department: string | null
-  document_date: string | null
-}
+  updateDocumentClassification,
+  type ClassificationFields,
+} from '@/actions/update-document-classification'
 
 type Props = {
   documentId: string
