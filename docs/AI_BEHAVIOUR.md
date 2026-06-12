@@ -109,6 +109,35 @@ It does:
 ### Input
 - Document file (PDF or image) from Vercel Blob
 - Episode context (patient name, existing document types in episode)
+- **Optional coordinator hints** (type, hospital) — collected before upload, advisory only
+
+### Upload Hints — how they flow into classification
+
+When a coordinator selects a document type or hospital name before uploading, those values
+are seeded immediately into the `documents` row (`type`, `source_hospital`, `purpose` for
+custom types). The same hints are then injected into the classification prompt as context.
+
+Claude is the source of truth — if Claude's output disagrees with the hint, Claude wins.
+The UI shows Claude's result. Coordinators can correct mismatches via
+`DocumentClassificationEditor` after classification runs.
+
+**Prompt injection pattern** (append to classify prompt when hints are present):
+```
+The coordinator has provided these hints — treat them as advisory context, not constraints:
+{{#if hint_type}}
+- Suggested document type: {{hint_type_label}}
+{{/if}}
+{{#if hint_hospital}}
+- Suggested hospital: {{hint_hospital}}
+{{/if}}
+If the document clearly matches the suggestion, use it. If the document contradicts it,
+classify correctly and ignore the hint. Do not explain the discrepancy in your output.
+```
+
+**Why not skip classification when hint is already set?** Hints are coordinator guesses,
+not verified facts. Claude reads the actual document content and may catch errors (e.g.
+coordinator selected "Lab Report" but file is actually a billing statement). Skipping
+classification would trust the hint over the document — that defeats the purpose.
 
 ### Prompt
 ```
@@ -123,6 +152,8 @@ Document types:
 - bill: charges for medical services, room, procedures, or medication
 - observation_note: nursing or doctor notes about patient condition during stay
 - other: anything that doesn't fit the above
+
+[If hints present, append the hint context block above]
 
 Return JSON matching this exact schema. No additional text.
 ```

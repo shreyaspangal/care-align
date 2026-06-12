@@ -214,20 +214,54 @@ type EpisodeTimelineProps = {
 ---
 
 ### DocumentUploadZone
-Upload area for new documents.
+Upload area for new documents with optional pre-classification hints.
 
 ```tsx
 // Behaviour
+- Two optional hint fields above the drop zone:
+    1. Document type — dropdown of 6 enum values + "Other (custom)"
+       Custom maps to type='other', custom label stored in purpose
+    2. Hospital name — free text input
+    Both are advisory — Claude confirms or corrects after classification.
+    Hints are seeded into the documents row immediately on upload
+    so the UI shows something while AI runs.
 - Drag and drop OR file picker
 - Accepts: PDF, JPG, PNG, HEIC
 - Max size: 10MB
 - On upload:
-    1. Shows upload progress
-    2. Calls upload-document server action
-    3. Shows TranslationStatusIndicator → "Translating..."
-    4. On complete → DocumentCard appears in timeline
-    5. EpisodeSummaryPanel updates
+    1. Appends hints to FormData (hint_type, hint_custom_type, hint_source_hospital)
+    2. Shows upload progress
+    3. Calls upload-document server action
+    4. On complete → resets hints, fires onUploadComplete(documentId)
 - Error state: clear message + retry button
+```
+
+---
+
+### DocumentClassificationEditor
+Inline edit UI for post-classification corrections. Shown inside DocumentCard
+when coordinator spots a discrepancy between their hint and Claude's output.
+
+```tsx
+type DocumentClassificationEditorProps = {
+  documentId: string
+  current: {
+    type: DocumentType
+    purpose: string | null
+    source_hospital: string | null
+    source_department: string | null
+    document_date: string | null
+  }
+  onSaved?: (updated: ClassificationFields) => void
+}
+
+// Behaviour
+- View mode: shows DocumentTypeTag + purpose + hospital with pencil edit button
+- Edit mode (on pencil click): inline form with all 5 editable fields
+  Fields: type (select), purpose, source_hospital, source_department, document_date
+- Save calls updateDocumentClassification server action — RLS enforces coordinator-only
+- Cancel reverts to current values
+- On save success: calls onSaved(updated), returns to view mode
 ```
 
 ---

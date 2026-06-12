@@ -29,6 +29,39 @@ export const CreatePatientSchema = z.object({
 
 // ─── Document Upload ──────────────────────────────────────────────────────────
 
+// Document types mirroring the DB enum. Used in the upload hint UI and classify step.
+export const DOCUMENT_TYPES = [
+  'prescription',
+  'lab_report',
+  'discharge_summary',
+  'bill',
+  'observation_note',
+  'other',
+] as const
+
+export type DocumentType = (typeof DOCUMENT_TYPES)[number]
+
+export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
+  prescription: 'Prescription',
+  lab_report: 'Lab Report',
+  discharge_summary: 'Discharge Summary',
+  bill: 'Bill',
+  observation_note: 'Observation Note',
+  other: 'Other',
+}
+
+// Optional hints the coordinator can provide before upload.
+// Both fields are optional — Claude fills any gap.
+// custom_type is only present when type = 'other' and user typed a label;
+// it is stored in documents.purpose, never as its own column.
+export const UploadHintsSchema = z.object({
+  type: z.enum([...DOCUMENT_TYPES] as [DocumentType, ...DocumentType[]]).optional(),
+  custom_type: z.string().trim().max(100).optional(),
+  source_hospital: z.string().trim().max(200).optional(),
+})
+
+export type UploadHints = z.infer<typeof UploadHintsSchema>
+
 export const ALLOWED_MIME_TYPES = [
   'application/pdf',
   'image/jpeg',
@@ -55,3 +88,4 @@ export const DocumentFileSchema = z
 export type LoginInput = z.infer<typeof LoginSchema>
 export type RegisterInput = z.infer<typeof RegisterSchema>
 export type CreatePatientInput = z.infer<typeof CreatePatientSchema>
+export type DocumentFileInput = z.infer<typeof DocumentFileSchema>

@@ -576,6 +576,9 @@ A layout only runs when that specific route renders. `proxy.ts` runs on every na
 ### Flow diagram
 
 ```
+Coordinator optionally fills hint fields (document type, hospital)
+         │  both optional — Claude is the source of truth, hints are advisory
+         ▼
 Coordinator clicks/drops a file
          │
          ▼
@@ -584,26 +587,36 @@ DocumentUploadZone (Client Component)
   │   fail → show error state, "Try again"
   │   pass ↓
   ├─ setState({ status: 'uploading' })
-  │   shows TranslationStatusIndicator → "Translating..."
   └─ uploadDocument(episodeId, formData)   ← Server Action
-             │
+             │  formData includes: file, hint_type?, hint_custom_type?, hint_source_hospital?
              ▼
       actions/upload-document.ts
        1. getUser()                ← auth check
        2. uploadRatelimit.limit()  ← 10/hr per user (Upstash Redis)
-       3. validateDocumentFile()   ← server-side re-validation (never trust client)
-       4. INSERT documents row     ← status: pending_classification, file_key: 'pending'
-       5. uploadToBlob()           ← Vercel Blob, private
+       3. UploadHintsSchema.parse() ← validate optional hint fields
+       4. validateDocumentFile()   ← server-side re-validation (never trust client)
+       5. INSERT documents row     ← status: pending_classification, file_key: 'pending'
+                                      seeds hint fields immediately (type, source_hospital,
+                                      purpose if custom_type provided)
+       6. uploadToBlob()           ← Vercel Blob, private
                                       path: documents/{episodeId}/{docId}/{filename}
            fail → UPDATE status: failed, return error (record kept, never deleted)
            pass ↓
-       6. UPDATE documents.file_key ← stores pathname only, never the full URL
-       7. return { ok: true, documentId }
+       7. UPDATE documents.file_key ← stores pathname only, never the full URL
+       8. return { ok: true, documentId }
              │
              ▼
 DocumentUploadZone
-  ├─ ok: true  → success state ("uploaded, AI running…") + onUploadComplete(documentId)
+  ├─ ok: true  → resets hints + state, fires onUploadComplete(documentId)
   └─ ok: false → error state with message + "Try again"
+
+Post-classification — coordinator reviews AI output on DocumentCard:
+  ├─ AI output matches hint → no action needed
+  └─ Discrepancy noticed → click pencil → DocumentClassificationEditor opens
+       ├─ Edit: type, purpose, source_hospital, source_department, document_date
+       └─ Save → actions/update-document-classification.ts
+                  └─ RLS enforces coordinator-only UPDATE
+                     revalidates /dashboard/[patientId]
 
 File access — coordinator views a document:
 GET /api/documents/[documentId]/file
@@ -618,11 +631,17 @@ GET /api/documents/[documentId]/file
 
 - **Client-side validation runs first** — instant feedback without a network round-trip.
   Server Action re-validates independently — client input is never trusted.
+- **Hints are advisory, not overrides** — coordinator type/hospital are seeded into the
+  document record immediately so the UI is not blank while AI runs. Claude's classification
+  output then confirms or replaces these. No special merge logic — Claude always wins.
+- **Custom document type stored in `purpose`** — type='other' + custom label in purpose.
+  No `custom_type` column added to documents. Keeps the enum clean.
+- **Post-classification edit via `DocumentClassificationEditor`** — coordinator can correct
+  any field after AI runs. Uses `updateDocumentClassification` server action; RLS enforces
+  coordinator-only access.
 - **Document record is created before Blob upload** — gives us an ID for the Blob path.
   If upload fails, the record stays with `status: failed`. Never deleted.
 - **`file_key` stores Blob pathname only** — full URL changes when Blob store migrates.
   Signed URLs are generated fresh on every file access request.
-- **Validation lives in `lib/storage/validate.ts`** — shared between client component
-  and Server Action. Single source of truth for allowed MIME types and max size.
 - **Rate limit is per user ID** — prevents a single coordinator from triggering
   runaway Claude API costs if they accidentally loop an upload.

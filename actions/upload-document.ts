@@ -5,6 +5,7 @@ import { validateDocumentFile } from '@/lib/storage/validate'
 import { uploadToBlob } from '@/lib/storage/blob'
 import { uploadRatelimit } from '@/lib/ratelimit'
 import { createLogger } from '@/lib/logger'
+import { UploadHintsSchema, type UploadHints } from '@/lib/validation/schemas'
 
 const log = createLogger('uploadDocument')
 
@@ -16,6 +17,20 @@ export async function uploadDocument(
   episodeId: string,
   formData: FormData
 ): Promise<UploadDocumentResult> {
+  // Extract and validate optional coordinator hints.
+  // Hints are advisory — they are passed to Claude as context, not overrides.
+  // custom_type is stored in purpose when type = 'other' and a label was provided.
+  const hintsRaw = {
+    type: (formData.get('hint_type') as string) || undefined,
+    custom_type: (formData.get('hint_custom_type') as string) || undefined,
+    source_hospital: (formData.get('hint_source_hospital') as string) || undefined,
+  }
+  const hintsResult = UploadHintsSchema.safeParse(hintsRaw)
+  if (!hintsResult.success) {
+    log.warn('upload', 'invalid upload hints', { errors: hintsResult.error.flatten() })
+    return { ok: false, error: 'Invalid upload options provided.' }
+  }
+  const hints = hintsResult.data
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -43,7 +58,9 @@ export async function uploadDocument(
     return { ok: false, error: validation.error }
   }
 
-  // Create Document record first — gets an ID for the Blob path
+  // Create Document record first — gets an ID for the Blob path.
+  // Seed any coordinator-provided hints immediately so the UI shows them
+  // while classification is pending. Claude will confirm or correct these.
   const { data: document, error: insertError } = await supabase
     .from('documents')
     .insert({
@@ -51,6 +68,11 @@ export async function uploadDocument(
       name: file.name,
       file_key: 'pending',
       status: 'pending_classification',
+      // Hint fields — may be undefined (null in DB) until Claude classifies
+      ...(hints.type && { type: hints.type }),
+      ...(hints.source_hospital && { source_hospital: hints.source_hospital }),
+      // custom_type stored in purpose when type = 'other'; Claude will refine
+      ...(hints.type === 'other' && hints.custom_type && { purpose: hints.custom_type }),
     })
     .select('id')
     .single()

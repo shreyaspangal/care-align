@@ -140,6 +140,40 @@ The gap between "I documented this" and "this cannot happen" is where bugs live.
 
 ---
 
+## Phase 6 Pre-work — Schema Hardening + Upload Hints
+
+**What did I decide?**
+
+Three decisions, all made before writing a line of Phase 6 AI pipeline code.
+
+**1. Self-describing tables.** `document_actions` and `pending_tasks` are two different things — audit trail vs. working list — but they need to carry the same categorical metadata independently. Added `category` and `phase_appears` to `document_actions`, and `action_for` to `pending_tasks`. This means either table can be queried without a join for basic product questions ("what actions were taken for this document?", "which tasks are assigned to the patient?"). The `source_action_id` FK on `pending_tasks` preserves the lineage without coupling the tables for reads.
+
+The alternative was to keep only `pending_tasks` (simpler schema, fewer tables) and derive everything from there. The objection to that: when a document is archived and its tasks are deleted or completed, you lose the audit trail of what Claude extracted from that document. `document_actions` is the immutable record of what was in each file. `pending_tasks` is the coordinator's working list. These are different things and need different tables.
+
+**2. Custom document type via `purpose` field.** When a coordinator selects "Other (custom)" in the upload UI, the custom label is stored in the `purpose` column, not a new `custom_type` column. `type` stays `'other'`. This keeps the enum clean and avoids schema changes for what is ultimately display metadata. The coordinator or Claude can later replace the purpose with a real clinical description.
+
+**3. Parallel input model for upload hints.** Coordinator provides optional hints (type, hospital) before uploading. Hints are seeded into the `documents` row immediately so the UI has something to show while AI runs. Claude then classifies independently — if it disagrees, Claude wins. The coordinator can correct any discrepancy via `DocumentClassificationEditor` after classification. This is the same UX pattern Eka Care uses at upload time.
+
+The alternative was to skip classification when a hint was provided ("trust the coordinator"). Rejected: a coordinator who selects "Lab Report" and uploads a bill causes downstream errors in translation and task generation. Claude reading the actual document is not optional.
+
+**What resisted me?**
+
+The schema review conversation. Every time we looked at the tables, a new gap appeared — `category` missing from `document_actions`, `action_for` missing from `pending_tasks`, hints not yet anywhere in the schema. Each gap on its own looked small. What resisted was accepting that the right move was to stop, enumerate all the gaps at once, and fix the schema before touching any AI code. The pull to just start writing `classify.ts` was strong.
+
+The structural review turned up the right question: "can I answer basic product questions from a single table, or do I need joins for everything?" When the answer was "joins for everything" on both tables, the schema wasn't done yet.
+
+**What did I understand?**
+
+The difference between a schema that is structurally correct and one that is query-practical. Normalization tells you not to repeat data. But a medical product where you need to surface "what did Claude extract from this document?" and "what is the coordinator's current task list?" in different UI contexts benefits from deliberate denormalization — each table carries enough to answer its own most common question.
+
+Upload hints also made me understand the value of showing something immediately vs. showing nothing until AI runs. The hint-seeding pattern (write hint to DB → show in UI → AI runs → UI updates) is a small UX detail but it changes whether the product feels responsive or dead while a 3-second Claude call runs.
+
+**One thing that surprised me:**
+
+The `purpose` field as a dual-use column. It was designed to hold Claude's plain-language purpose description ("Pre-operation blood work"). It turns out it also works perfectly as the custom type label when `type='other'`. The field has exactly the right semantics — a human-readable description of what this document is — regardless of whether Claude or the coordinator wrote it.
+
+---
+
 ## Content Pipeline
 
 When ready to post, paste raw notes from any phase above into a Claude conversation with:

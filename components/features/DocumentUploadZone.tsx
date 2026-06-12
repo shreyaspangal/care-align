@@ -1,12 +1,22 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { Upload, AlertCircle, Loader2 } from 'lucide-react'
+import { Upload, AlertCircle, Loader2, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { uploadDocument } from '@/actions/upload-document'
-import { ALLOWED_MIME_TYPES, MAX_SIZE_BYTES, validateDocumentFile } from '@/lib/storage/validate'
+import {
+  ALLOWED_MIME_TYPES,
+  MAX_FILE_SIZE_BYTES,
+  DOCUMENT_TYPES,
+  DOCUMENT_TYPE_LABELS,
+  type DocumentType,
+  type UploadHints,
+} from '@/lib/validation/schemas'
+import { validateDocumentFile } from '@/lib/storage/validate'
 
 type UploadState =
   | { status: 'idle' }
@@ -18,9 +28,13 @@ type DocumentUploadZoneProps = {
   onUploadComplete?: (documentId: string) => void
 }
 
+const CUSTOM_TYPE_VALUE = '__custom__'
+
 export function DocumentUploadZone({ episodeId, onUploadComplete }: DocumentUploadZoneProps) {
   const [state, setState] = useState<UploadState>({ status: 'idle' })
   const [isDragging, setIsDragging] = useState(false)
+  const [hints, setHints] = useState<UploadHints>({})
+  const [showCustomType, setShowCustomType] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   async function handleFile(file: File) {
@@ -34,11 +48,16 @@ export function DocumentUploadZone({ episodeId, onUploadComplete }: DocumentUplo
 
     const formData = new FormData()
     formData.append('file', file)
+    if (hints.type) formData.append('hint_type', hints.type)
+    if (hints.custom_type) formData.append('hint_custom_type', hints.custom_type)
+    if (hints.source_hospital) formData.append('hint_source_hospital', hints.source_hospital)
 
     const result = await uploadDocument(episodeId, formData)
 
     if (result.ok) {
       setState({ status: 'idle' })
+      setHints({})
+      setShowCustomType(false)
       toast.success(`${file.name} uploaded`, {
         description: 'AI classification is running in the background.',
         duration: 5000,
@@ -52,7 +71,6 @@ export function DocumentUploadZone({ episodeId, onUploadComplete }: DocumentUplo
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (file) handleFile(file)
-    // Reset so the same file can be re-selected after an error
     e.target.value = ''
   }
 
@@ -63,8 +81,21 @@ export function DocumentUploadZone({ episodeId, onUploadComplete }: DocumentUplo
     if (file) handleFile(file)
   }
 
+  function handleTypeChange(value: string) {
+    if (value === CUSTOM_TYPE_VALUE) {
+      setHints(h => ({ ...h, type: 'other', custom_type: '' }))
+      setShowCustomType(true)
+    } else if (value === '') {
+      setHints(h => ({ ...h, type: undefined, custom_type: undefined }))
+      setShowCustomType(false)
+    } else {
+      setHints(h => ({ ...h, type: value as DocumentType, custom_type: undefined }))
+      setShowCustomType(false)
+    }
+  }
+
   const acceptTypes = ALLOWED_MIME_TYPES.join(',')
-  const maxMb = MAX_SIZE_BYTES / (1024 * 1024)
+  const maxMb = MAX_FILE_SIZE_BYTES / (1024 * 1024)
 
   if (state.status === 'uploading') {
     return (
@@ -95,39 +126,87 @@ export function DocumentUploadZone({ episodeId, onUploadComplete }: DocumentUplo
   }
 
   return (
-    <div
-      onDrop={handleDrop}
-      onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
-      onDragLeave={() => setIsDragging(false)}
-      onClick={() => inputRef.current?.click()}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
-      aria-label="Upload document"
-      className={cn(
-        'border-2 border-dashed rounded-xl p-8 flex flex-col items-center gap-3 text-center cursor-pointer transition-colors',
-        isDragging
-          ? 'border-primary bg-primary/5'
-          : 'border-border hover:border-primary/50 hover:bg-accent/30'
-      )}
-    >
-      <Upload className="text-muted-foreground" size={28} />
-      <div>
-        <p className="text-sm font-medium">Drop a document here</p>
-        <p className="text-xs text-muted-foreground mt-1">
-          or <span className="underline underline-offset-4">browse files</span>
-        </p>
+    <div className="space-y-3">
+      {/* Optional hint fields — shown above the drop zone */}
+      <div className="grid grid-cols-2 gap-3">
+        {/* Document type selector */}
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">
+            Document type <span className="text-muted-foreground/60">(optional)</span>
+          </Label>
+          <div className="relative">
+            <select
+              value={showCustomType ? CUSTOM_TYPE_VALUE : (hints.type ?? '')}
+              onChange={e => handleTypeChange(e.target.value)}
+              className="w-full h-9 rounded-md border border-input bg-background px-3 pr-8 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-0"
+            >
+              <option value="">AI will detect</option>
+              {DOCUMENT_TYPES.filter(t => t !== 'other').map(t => (
+                <option key={t} value={t}>{DOCUMENT_TYPE_LABELS[t]}</option>
+              ))}
+              <option value={CUSTOM_TYPE_VALUE}>Other (custom)</option>
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 text-muted-foreground" size={14} />
+          </div>
+          {showCustomType && (
+            <Input
+              placeholder="e.g. Referral Letter"
+              value={hints.custom_type ?? ''}
+              onChange={e => setHints(h => ({ ...h, custom_type: e.target.value }))}
+              className="h-9 text-sm"
+            />
+          )}
+        </div>
+
+        {/* Hospital name */}
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">
+            Hospital <span className="text-muted-foreground/60">(optional)</span>
+          </Label>
+          <Input
+            placeholder="AI will detect"
+            value={hints.source_hospital ?? ''}
+            onChange={e => setHints(h => ({ ...h, source_hospital: e.target.value || undefined }))}
+            className="h-9 text-sm"
+          />
+        </div>
       </div>
-      <p className="text-xs text-muted-foreground">
-        PDF, JPG, PNG, HEIC · max {maxMb} MB
-      </p>
-      <input
-        ref={inputRef}
-        type="file"
-        accept={acceptTypes}
-        onChange={handleInputChange}
-        className="sr-only"
-      />
+
+      {/* Drop zone */}
+      <div
+        onDrop={handleDrop}
+        onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+        onDragLeave={() => setIsDragging(false)}
+        onClick={() => inputRef.current?.click()}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
+        aria-label="Upload document"
+        className={cn(
+          'border-2 border-dashed rounded-xl p-8 flex flex-col items-center gap-3 text-center cursor-pointer transition-colors',
+          isDragging
+            ? 'border-primary bg-primary/5'
+            : 'border-border hover:border-primary/50 hover:bg-accent/30'
+        )}
+      >
+        <Upload className="text-muted-foreground" size={28} />
+        <div>
+          <p className="text-sm font-medium">Drop a document here</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            or <span className="underline underline-offset-4">browse files</span>
+          </p>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          PDF, JPG, PNG, HEIC · max {maxMb} MB
+        </p>
+        <input
+          ref={inputRef}
+          type="file"
+          accept={acceptTypes}
+          onChange={handleInputChange}
+          className="sr-only"
+        />
+      </div>
     </div>
   )
 }
