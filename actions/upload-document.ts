@@ -1,11 +1,17 @@
 'use server'
 
+import { NoObjectGeneratedError } from 'ai'
+import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { validateDocumentFile } from '@/lib/storage/validate'
-import { uploadToBlob } from '@/lib/storage/blob'
+import { uploadToBlob, getSignedBlobUrl } from '@/lib/storage/blob'
 import { uploadRatelimit } from '@/lib/ratelimit'
-import { createLogger } from '@/lib/logger'
 import { UploadHintsSchema, type UploadHints } from '@/lib/validation/schemas'
+import { classifyDocument } from '@/lib/ai/classify'
+import { translateDocument } from '@/lib/ai/translate'
+import { regenerateEpisodeSummary } from '@/lib/ai/summarise'
+import { upsertEpisodeSummary } from '@/lib/db/episode-summaries'
+import { createLogger } from '@/lib/logger'
 
 const log = createLogger('uploadDocument')
 
@@ -17,28 +23,21 @@ export async function uploadDocument(
   episodeId: string,
   formData: FormData
 ): Promise<UploadDocumentResult> {
-  // Extract and validate optional coordinator hints.
-  // Hints are advisory — they are passed to Claude as context, not overrides.
-  // custom_type is stored in purpose when type = 'other' and a label was provided.
-  const hintsRaw = {
+  const hintsResult = UploadHintsSchema.safeParse({
     type: (formData.get('hint_type') as string) || undefined,
     custom_type: (formData.get('hint_custom_type') as string) || undefined,
     source_hospital: (formData.get('hint_source_hospital') as string) || undefined,
-  }
-  const hintsResult = UploadHintsSchema.safeParse(hintsRaw)
+  })
   if (!hintsResult.success) {
     log.warn('upload', 'invalid upload hints', { errors: hintsResult.error.flatten() })
     return { ok: false, error: 'Invalid upload options provided.' }
   }
-  const hints = hintsResult.data
-  const supabase = await createClient()
+  const hints: UploadHints = hintsResult.data
 
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Not authenticated.' }
 
-  log.debug('upload', 'user authenticated', { userId: user.id, episodeId })
-
-  // Rate limit — 10 uploads per user per hour
   const { success, remaining } = await uploadRatelimit.limit(user.id)
   log.debug('upload', 'rate limit check', { success, remaining, userId: user.id })
   if (!success) {
@@ -49,18 +48,14 @@ export async function uploadDocument(
   const file = formData.get('file')
   if (!(file instanceof File)) return { ok: false, error: 'No file provided.' }
 
-  log.debug('upload', 'file received', { name: file.name, size: file.size, type: file.type })
-
-  // Validate MIME type and size via Zod schema
   const validation = validateDocumentFile(file)
   if (!validation.ok) {
     log.warn('upload', 'file validation failed', { error: validation.error, file: file.name })
     return { ok: false, error: validation.error }
   }
 
-  // Create Document record first — gets an ID for the Blob path.
-  // Seed any coordinator-provided hints immediately so the UI shows them
-  // while classification is pending. Claude will confirm or correct these.
+  // Create record before blob upload so we have an ID for the blob path.
+  // Hint fields are seeded immediately so the UI shows something while AI runs.
   const { data: document, error: insertError } = await supabase
     .from('documents')
     .insert({
@@ -68,57 +63,200 @@ export async function uploadDocument(
       name: file.name,
       file_key: 'pending',
       status: 'pending_classification',
-      // Hint fields — may be undefined (null in DB) until Claude classifies
       ...(hints.type && { type: hints.type }),
       ...(hints.source_hospital && { source_hospital: hints.source_hospital }),
-      // custom_type stored in purpose when type = 'other'; Claude will refine
       ...(hints.type === 'other' && hints.custom_type && { purpose: hints.custom_type }),
     })
     .select('id')
     .single()
 
   if (insertError || !document) {
-    log.error('upload', 'document record insert failed', {
-      error: insertError?.message,
-      code: insertError?.code,
-    })
+    log.error('upload', 'document record insert failed', { error: insertError?.message })
     return { ok: false, error: 'Failed to create document record.' }
   }
 
-  log.info('upload', 'document record created', { documentId: document.id, episodeId })
+  const documentId = document.id
+  log.info('upload', 'document record created', { documentId, episodeId })
 
-  // Upload to Vercel Blob — private, keyed by episode + document ID
+  // Helper: mark failed and return — record is preserved for audit/retry
+  const fail = async (reason: string, logMsg: string, extra?: object) => {
+    log.error('upload', logMsg, { documentId, ...extra })
+    await supabase.from('documents').update({ status: 'failed' }).eq('id', documentId)
+    return { ok: false as const, error: reason }
+  }
+
+  // ── Blob upload ────────────────────────────────────────────────────────────
   let fileKey: string
   try {
-    fileKey = await uploadToBlob(file, episodeId, document.id)
-    log.info('upload', 'blob upload successful', { documentId: document.id, fileKey })
+    fileKey = await uploadToBlob(file, episodeId, documentId)
+    log.info('upload', 'blob upload complete', { documentId, fileKey })
   } catch (err) {
-    log.error('upload', 'blob upload failed — marking document as failed', {
-      documentId: document.id,
+    return fail('File upload failed. Please try again.', 'blob upload failed', {
       error: err instanceof Error ? err.message : String(err),
     })
-    // Mark as failed, do not delete the record
-    await supabase
-      .from('documents')
-      .update({ status: 'failed' })
-      .eq('id', document.id)
-    return { ok: false, error: 'File upload failed. Please try again.' }
   }
 
-  // Update record with real file_key
-  const { error: updateError } = await supabase
-    .from('documents')
-    .update({ file_key: fileKey })
-    .eq('id', document.id)
+  await supabase.from('documents').update({ file_key: fileKey }).eq('id', documentId)
 
-  if (updateError) {
-    log.error('upload', 'failed to persist file_key', {
-      documentId: document.id,
-      error: updateError.message,
+  // Read file into buffer once — reused for classify + translate calls
+  const fileBuffer = Buffer.from(await file.arrayBuffer())
+  const mimeType = file.type
+
+  // ── Classification ─────────────────────────────────────────────────────────
+  let classification
+  try {
+    classification = await classifyDocument(fileBuffer, mimeType, {
+      type: hints.type,
+      hospital: hints.source_hospital,
     })
-    return { ok: false, error: 'Failed to save file reference.' }
+    log.info('upload', 'classification complete', { documentId, type: classification.type })
+  } catch (err) {
+    if (NoObjectGeneratedError.isInstance(err)) {
+      return fail('Could not classify document.', 'classification failed — NoObjectGenerated', {
+        partial: err.text,
+      })
+    }
+    return fail('Classification failed. Please try again.', 'classification error', {
+      error: err instanceof Error ? err.message : String(err),
+    })
   }
 
-  log.info('upload', 'upload pipeline complete', { documentId: document.id, episodeId })
-  return { ok: true, documentId: document.id }
+  await supabase
+    .from('documents')
+    .update({
+      status: 'classified',
+      type: classification.type,
+      name: classification.suggested_name,
+      purpose: classification.suggested_purpose,
+      document_date: classification.document_date,
+      source_hospital: classification.source_hospital,
+      source_department: classification.source_department,
+    })
+    .eq('id', documentId)
+
+  // ── Translation ────────────────────────────────────────────────────────────
+
+  // Fetch patient name for personalised prompts
+  const { data: episode } = await supabase
+    .from('episodes')
+    .select('patients(profiles(name))')
+    .eq('id', episodeId)
+    .single()
+
+  const patientName =
+    (episode?.patients as { profiles?: { name?: string } } | null)?.profiles?.name ?? 'the patient'
+
+  let translation
+  try {
+    translation = await translateDocument(fileBuffer, mimeType, classification.type, patientName)
+    log.info('upload', 'translation complete', { documentId, actionCount: translation.actions.length })
+  } catch (err) {
+    if (NoObjectGeneratedError.isInstance(err)) {
+      return fail('Could not translate document.', 'translation failed — NoObjectGenerated', {
+        partial: err.text,
+      })
+    }
+    return fail('Translation failed. Please try again.', 'translation error', {
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
+
+  const { data: translationRecord, error: translationError } = await supabase
+    .from('document_translations')
+    .insert({
+      document_id: documentId,
+      plain_language: translation.plain_language,
+      what_it_means: translation.what_it_means,
+      prompt_version: 'v1',
+    })
+    .select('id')
+    .single()
+
+  if (translationError || !translationRecord) {
+    return fail('Failed to save translation.', 'translation insert failed', {
+      error: translationError?.message,
+    })
+  }
+
+  // Insert document_actions (immutable AI audit trail)
+  if (translation.actions.length > 0) {
+    const { error: actionsError } = await supabase.from('document_actions').insert(
+      translation.actions.map((a) => ({
+        translation_id: translationRecord.id,
+        action_for: a.action_for,
+        category: a.category,
+        phase_appears: a.phase_appears,
+        description: a.description,
+      }))
+    )
+    if (actionsError) {
+      log.warn('upload', 'document_actions insert failed — continuing', {
+        documentId,
+        error: actionsError.message,
+      })
+    }
+
+    // Promote to pending_tasks (coordinator working list)
+    const { error: tasksError } = await supabase.from('pending_tasks').insert(
+      translation.actions.map((a) => ({
+        episode_id: episodeId,
+        action_for: a.action_for,
+        category: a.category,
+        phase_appears: a.phase_appears,
+        description: a.description,
+      }))
+    )
+    if (tasksError) {
+      log.warn('upload', 'pending_tasks insert failed — continuing', {
+        documentId,
+        error: tasksError.message,
+      })
+    }
+  }
+
+  await supabase
+    .from('documents')
+    .update({ status: 'translated' })
+    .eq('id', documentId)
+
+  // ── Episode summary regeneration (non-fatal) ───────────────────────────────
+  try {
+    const { data: episodeRow } = await supabase
+      .from('episodes')
+      .select('started_at')
+      .eq('id', episodeId)
+      .single()
+
+    const { data: allTranslations } = await supabase
+      .from('document_translations')
+      .select('plain_language, what_it_means, documents(type, document_date)')
+      .eq('documents.episode_id', episodeId)
+
+    if (allTranslations && allTranslations.length > 0 && episodeRow) {
+      const summaryInput = allTranslations.map((t) => ({
+        plain_language: t.plain_language,
+        what_it_means: t.what_it_means,
+        document_type: (t.documents as { type?: string } | null)?.type ?? 'document',
+        document_date: (t.documents as { document_date?: string | null } | null)?.document_date ?? null,
+      }))
+
+      const summary = await regenerateEpisodeSummary(
+        patientName,
+        episodeRow.started_at,
+        summaryInput
+      )
+      await upsertEpisodeSummary(supabase, episodeId, summary)
+      log.info('upload', 'episode summary updated', { episodeId })
+    }
+  } catch (err) {
+    // Non-fatal — previous summary is preserved
+    log.warn('upload', 'episode summary regeneration failed — keeping previous', {
+      episodeId,
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
+
+  revalidatePath(`/dashboard/${episodeId}`)
+  log.info('upload', 'pipeline complete', { documentId, episodeId })
+  return { ok: true, documentId }
 }
