@@ -294,16 +294,24 @@ If Claude needs to re-translate (prompt improvement, model upgrade), the origina
 ---
 
 ### DocumentAction
-Actions extracted from a document translation. One translation can produce multiple actions.
+Raw AI output — actions extracted from a document translation. The immutable audit trail.
+One translation can produce zero or more actions.
 
 ```sql
 CREATE TABLE document_actions (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   translation_id  UUID NOT NULL REFERENCES document_translations(id),
-  action_for      action_for NOT NULL,
+  action_for      action_for    NOT NULL,
   -- coordinator: buy medication, submit form
-  -- patient: avoid lifting, follow diet
-  -- both: attend follow-up appointment
+  -- patient:     avoid lifting, follow diet
+  -- both:        attend follow-up appointment
+  category        task_category NOT NULL,
+  -- Derived from document.type at write time — not from Claude output.
+  -- See lib/ai/classify-action.ts for the lookup table.
+  phase_appears   task_phase    NOT NULL,
+  -- Derived from document.type + episode.care_ended_at at write time.
+  -- during_care:    episode still active when document was uploaded
+  -- post_discharge: care_ended_at was set before document was uploaded
   description     TEXT NOT NULL,
   status          action_status NOT NULL DEFAULT 'open',
   resolved_at     TIMESTAMPTZ,
@@ -317,10 +325,29 @@ CREATE INDEX idx_document_actions_status
   ON document_actions(status);
 CREATE INDEX idx_document_actions_translation_status
   ON document_actions(translation_id, status);
+CREATE INDEX idx_document_actions_phase
+  ON document_actions(phase_appears);
+CREATE INDEX idx_document_actions_translation_phase
+  ON document_actions(translation_id, phase_appears);
 ```
 
+**Why `document_actions` is the audit trail, not the working list:**
+`document_actions` is immutable once written — it records exactly what Claude extracted
+from this specific document. It answers: "what did the AI say about this document?"
+`pending_tasks` is the coordinator's working list — mutable, resolvable, phase-filtered.
+It answers: "what still needs to happen for this episode?"
+The `source_action_id` FK on `pending_tasks` preserves full lineage between the two.
+
+**Why both tables carry `action_for`, `category`, and `phase_appears`:**
+Both tables must be self-describing. `document_actions` without `category` cannot answer
+"what kind of action was this?" without joining `pending_tasks`. `pending_tasks` without
+`action_for` cannot filter patient-visible tasks without joining back to `document_actions`.
+Each table is independently queryable — no cross-table join required for basic questions.
+
 **Why not flat fields on DocumentTranslation:**
-A single document can produce multiple actions for different people. A discharge summary might have "buy medication X" for coordinator AND "avoid lifting" for patient AND "attend follow-up in 7 days" for both. Flat fields can only hold one action.
+A single document can produce multiple actions for different people. A discharge summary
+might have "buy medication X" for coordinator AND "avoid lifting" for patient AND
+"attend follow-up in 7 days" for both. Flat fields can only hold one action.
 
 ---
 
@@ -401,16 +428,23 @@ The `upsert_episode_summary` Postgres function encapsulates the INSERT...ON CONF
 ---
 
 ### PendingTask
-Episode-level tasks that the coordinator needs to track. Phase-aware — only surfaces at the right time.
+The coordinator's working task list. Phase-aware — only surfaces tasks relevant to the
+current stage of care. Mutable — tasks are resolved with notes as the episode progresses.
 
 ```sql
 CREATE TABLE pending_tasks (
   id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   episode_id       UUID NOT NULL REFERENCES episodes(id),
   source_action_id UUID REFERENCES document_actions(id),
-  -- Nullable. Set when this task was promoted from a DocumentAction (V2+).
+  -- Nullable. Set when promoted from a DocumentAction (V1 pipeline).
   -- Null means the task was created manually by the coordinator.
   -- Enables tracing: "which document produced this task?"
+  action_for       action_for    NOT NULL DEFAULT 'coordinator',
+  -- Copied from source document_action at promotion time.
+  -- coordinator: task only the coordinator sees and acts on
+  -- patient:     task the patient sees in their own view
+  -- both:        visible to both coordinator and patient
+  -- Patient view filters: WHERE action_for IN ('patient', 'both')
   category         task_category NOT NULL,
   description      TEXT NOT NULL,
   -- Plain language: "Submit insurance reimbursement claim for Room 204"
@@ -430,10 +464,13 @@ CREATE INDEX idx_pending_tasks_episode_id ON pending_tasks(episode_id);
 CREATE INDEX idx_pending_tasks_source_action_id ON pending_tasks(source_action_id);
 CREATE INDEX idx_pending_tasks_status ON pending_tasks(status);
 CREATE INDEX idx_pending_tasks_phase ON pending_tasks(phase_appears);
+CREATE INDEX idx_pending_tasks_action_for ON pending_tasks(action_for);
 CREATE INDEX idx_pending_tasks_episode_status
   ON pending_tasks(episode_id, status);
 CREATE INDEX idx_pending_tasks_episode_phase_status
   ON pending_tasks(episode_id, phase_appears, status);
+CREATE INDEX idx_pending_tasks_episode_actionfor_status
+  ON pending_tasks(episode_id, action_for, status);
 ```
 
 **Why phase_appears matters:**
@@ -691,8 +728,12 @@ WITH CHECK (
 
 When V2 ships, the following additions are planned:
 
-1. **Automatic DocumentAction → PendingTask promotion**
-   A database trigger or server action that promotes a resolved DocumentAction to a PendingTask when it represents an ongoing obligation (medication, lifestyle, follow-up).
+1. **EpisodeSummaryHistory archive**
+   ~~Automatic DocumentAction → PendingTask promotion~~ — this now happens in V1 as
+   part of the translate step. Every DocumentAction is immediately promoted to a
+   PendingTask at write time via `lib/ai/classify-action.ts`.
+   V2 addition: archive table storing previous EpisodeSummary versions before
+   regeneration. Enables "what did this say on Day 3" queries.
 
 2. **EpisodeSummaryHistory**
    Archive table storing previous versions of EpisodeSummary before regeneration. Enables "what did this say on Day 3" queries.

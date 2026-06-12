@@ -172,8 +172,8 @@ These can differ — a coordinator of one patient could be a patient in another 
 | Patient record | `admission_status` | `patients` |
 | Episode lifecycle | `episode_status` | `episodes` |
 | Document upload + AI pipeline | `document_type`, `document_status` | `documents` |
-| AI output — actions | `action_for`, `action_status` | `document_actions` |
-| Task list | `task_category`, `task_phase`, `task_status` | `pending_tasks` |
+| AI output — actions | `action_for`, `category`, `phase_appears`, `action_status` | `document_actions` |
+| Task list | `action_for`, `task_category`, `task_phase`, `task_status` | `pending_tasks` |
 
 ### Navigation — where to look when confused
 
@@ -195,7 +195,7 @@ These can differ — a coordinator of one patient could be a patient in another 
 validate file (MIME + size) → rate limit check → upload to Vercel Blob
 → create Document (status: pending_classification)
 → Claude: classify → update Document (status: classified)
-→ Claude: translate → create DocumentTranslation + DocumentActions (status: translated)
+→ Claude: translate → create DocumentTranslation + DocumentActions + PendingTasks (status: translated)
 → Claude: regenerate EpisodeSummary (non-fatal — failure keeps previous version)
 ```
 
