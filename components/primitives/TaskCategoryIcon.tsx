@@ -7,15 +7,7 @@ import {
   FileText,
   CreditCard,
 } from 'lucide-react'
-
-type TaskCategory =
-  | 'insurance'
-  | 'medication'
-  | 'doctor_visit'
-  | 'lifestyle'
-  | 'test_results'
-  | 'forms'
-  | 'payment'
+import type { TaskCategory } from '@/lib/types/domain'
 
 type TaskCategoryIconProps = {
   category: TaskCategory

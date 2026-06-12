@@ -1,21 +1,22 @@
 'server-only'
 
-import { generateObject } from 'ai'
+import { generateText, Output, NoOutputGeneratedError } from 'ai'
 import { anthropic } from '@ai-sdk/anthropic'
 import { AI_MODELS } from './models'
 import { EpisodeSummarySchema, type EpisodeSummary } from './schemas'
+import type { DocumentType } from '@/lib/types/domain'
 
-type DocumentSummary = {
+export type DocumentSummaryInput = {
   plain_language: string
   what_it_means: string
+  document_type: DocumentType | 'document'
   document_date: string | null
-  document_type: string
 }
 
-const PROMPT = (
+const buildPrompt = (
   patientName: string,
   startedAt: string,
-  summaries: DocumentSummary[]
+  summaries: DocumentSummaryInput[]
 ) => {
   const docs = summaries
     .map(
@@ -43,18 +44,23 @@ Do not include actions or tasks. If nothing significant has changed, reflect sta
 export async function regenerateEpisodeSummary(
   patientName: string,
   startedAt: string,
-  translations: DocumentSummary[]
+  translations: DocumentSummaryInput[]
 ): Promise<EpisodeSummary> {
-  const { object } = await generateObject({
+  const result = await generateText({
     model: anthropic(AI_MODELS.summarise),
-    schema: EpisodeSummarySchema,
+    output: Output.object({ schema: EpisodeSummarySchema }),
     temperature: 0.1,
     messages: [
       {
         role: 'user',
-        content: PROMPT(patientName, startedAt, translations),
+        content: buildPrompt(patientName, startedAt, translations),
       },
     ],
   })
-  return object
+
+  if (result.output === undefined) {
+    throw new NoOutputGeneratedError()
+  }
+
+  return result.output
 }

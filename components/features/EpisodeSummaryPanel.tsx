@@ -1,17 +1,7 @@
 import { EpisodeStatusCard } from '@/components/composites/EpisodeStatusCard'
 import { TaskCategoryIcon } from '@/components/primitives/TaskCategoryIcon'
 import { Separator } from '@/components/ui/separator'
-
-type EpisodeStatus = 'active' | 'care_complete' | 'closed'
-
-type TaskCategory =
-  | 'insurance'
-  | 'medication'
-  | 'doctor_visit'
-  | 'lifestyle'
-  | 'test_results'
-  | 'forms'
-  | 'payment'
+import type { EpisodeStatus, TaskCategory } from '@/lib/types/domain'
 
 type TaskCount = { category: TaskCategory; count: number }
 

@@ -1,8 +1,6 @@
 import { DocumentTypeTag } from '@/components/primitives/DocumentTypeTag'
 import { TranslationStatusIndicator } from '@/components/primitives/TranslationStatusIndicator'
-
-type DocumentType = 'prescription' | 'lab_report' | 'discharge_summary' | 'bill' | 'observation_note' | 'other'
-type TranslationStatus = 'pending' | 'translating' | 'complete' | 'failed'
+import type { DocumentType, TranslationStatus } from '@/lib/types/domain'
 
 type DocumentCardProps = {
   document: {

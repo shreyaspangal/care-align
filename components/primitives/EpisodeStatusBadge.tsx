@@ -1,6 +1,5 @@
 import { cn } from '@/lib/utils'
-
-type EpisodeStatus = 'active' | 'care_complete' | 'closed'
+import type { EpisodeStatus } from '@/lib/types/domain'
 
 type EpisodeStatusBadgeProps = {
   status: EpisodeStatus

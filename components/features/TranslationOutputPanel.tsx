@@ -9,39 +9,23 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { DocumentTypeTag } from '@/components/primitives/DocumentTypeTag'
 import { TaskCategoryIcon } from '@/components/primitives/TaskCategoryIcon'
+import type { DocumentType, TaskCategory, ActionFor, TaskPhase, UserRole } from '@/lib/types/domain'
 
-type DocumentType =
-  | 'prescription'
-  | 'lab_report'
-  | 'discharge_summary'
-  | 'bill'
-  | 'observation_note'
-  | 'other'
-
-type TaskCategory =
-  | 'insurance'
-  | 'medication'
-  | 'doctor_visit'
-  | 'lifestyle'
-  | 'test_results'
-  | 'forms'
-  | 'payment'
-
-type Action = {
+export type PanelAction = {
   id: string
   description: string
   category: TaskCategory
-  action_for: 'coordinator' | 'patient' | 'both'
-  phase_appears: 'during_care' | 'post_discharge'
+  action_for: ActionFor
+  phase_appears: TaskPhase
 }
 
-type Translation = {
+export type PanelTranslation = {
   plain_language: string
   what_it_means: string
-  actions: Action[]
+  actions: PanelAction[]
 }
 
-type Document = {
+export type PanelDocument = {
   id: string
   name: string
   type: DocumentType
@@ -51,9 +35,9 @@ type Document = {
 type TranslationOutputPanelProps = {
   open: boolean
   onClose: () => void
-  document: Document
-  translation: Translation | null
-  viewerRole: 'coordinator' | 'patient'
+  document: PanelDocument
+  translation: PanelTranslation | null
+  viewerRole: UserRole
 }
 
 export function TranslationOutputPanel({

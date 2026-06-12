@@ -1,9 +1,6 @@
 import { TaskCategoryIcon } from '@/components/primitives/TaskCategoryIcon'
 import { Button } from '@/components/ui/button'
-
-type TaskCategory = 'insurance' | 'medication' | 'doctor_visit' | 'lifestyle' | 'test_results' | 'forms' | 'payment'
-type TaskStatus = 'open' | 'resolved'
-type TaskPhase = 'during_care' | 'post_discharge'
+import type { TaskCategory, TaskStatus, TaskPhase } from '@/lib/types/domain'
 
 type PendingTaskRowProps = {
   task: {

@@ -1,12 +1,6 @@
 import { cn } from '@/lib/utils'
-
-type DocumentType =
-  | 'prescription'
-  | 'lab_report'
-  | 'discharge_summary'
-  | 'bill'
-  | 'observation_note'
-  | 'other'
+import { DOCUMENT_TYPE_LABELS } from '@/lib/validation/schemas'
+import type { DocumentType } from '@/lib/types/domain'
 
 type DocumentTypeTagProps = {
   type: DocumentType
@@ -22,15 +16,6 @@ const styles: Record<DocumentType, string> = {
   other: 'bg-gray-50 text-gray-600 border-gray-200',
 }
 
-const labels: Record<DocumentType, string> = {
-  prescription: 'Prescription',
-  lab_report: 'Lab Report',
-  discharge_summary: 'Discharge Summary',
-  bill: 'Bill',
-  observation_note: 'Observation Note',
-  other: 'Document',
-}
-
 export function DocumentTypeTag({ type, size = 'sm' }: DocumentTypeTagProps) {
   return (
     <span
@@ -40,7 +25,7 @@ export function DocumentTypeTag({ type, size = 'sm' }: DocumentTypeTagProps) {
         styles[type]
       )}
     >
-      {labels[type]}
+      {DOCUMENT_TYPE_LABELS[type]}
     </span>
   )
 }

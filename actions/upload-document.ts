@@ -1,6 +1,6 @@
 'use server'
 
-import { NoObjectGeneratedError } from 'ai'
+import { NoOutputGeneratedError } from 'ai'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { validateDocumentFile } from '@/lib/storage/validate'
@@ -9,7 +9,7 @@ import { uploadRatelimit } from '@/lib/ratelimit'
 import { UploadHintsSchema, type UploadHints } from '@/lib/validation/schemas'
 import { classifyDocument } from '@/lib/ai/classify'
 import { translateDocument } from '@/lib/ai/translate'
-import { regenerateEpisodeSummary } from '@/lib/ai/summarise'
+import { regenerateEpisodeSummary, type DocumentSummaryInput } from '@/lib/ai/summarise'
 import { upsertEpisodeSummary } from '@/lib/db/episode-summaries'
 import { createLogger } from '@/lib/logger'
 
@@ -111,10 +111,8 @@ export async function uploadDocument(
     })
     log.info('upload', 'classification complete', { documentId, type: classification.type })
   } catch (err) {
-    if (NoObjectGeneratedError.isInstance(err)) {
-      return fail('Could not classify document.', 'classification failed — NoObjectGenerated', {
-        partial: err.text,
-      })
+    if (NoOutputGeneratedError.isInstance(err)) {
+      return fail('Could not classify document.', 'classification failed — NoOutputGenerated')
     }
     return fail('Classification failed. Please try again.', 'classification error', {
       error: err instanceof Error ? err.message : String(err),
@@ -126,7 +124,11 @@ export async function uploadDocument(
     .update({
       status: 'classified',
       type: classification.type,
-      name: classification.suggested_name,
+      // When Claude inferred rather than extracted the name, prefix it so the
+      // coordinator and audit trail know it is a guess, not a verbatim extraction.
+      name: classification.name_is_guessed
+        ? `[Inferred] ${classification.suggested_name}`
+        : classification.suggested_name,
       purpose: classification.suggested_purpose,
       document_date: classification.document_date,
       source_hospital: classification.source_hospital,
@@ -151,10 +153,8 @@ export async function uploadDocument(
     translation = await translateDocument(fileBuffer, mimeType, classification.type, patientName)
     log.info('upload', 'translation complete', { documentId, actionCount: translation.actions.length })
   } catch (err) {
-    if (NoObjectGeneratedError.isInstance(err)) {
-      return fail('Could not translate document.', 'translation failed — NoObjectGenerated', {
-        partial: err.text,
-      })
+    if (NoOutputGeneratedError.isInstance(err)) {
+      return fail('Could not translate document.', 'translation failed — NoOutputGenerated')
     }
     return fail('Translation failed. Please try again.', 'translation error', {
       error: err instanceof Error ? err.message : String(err),
@@ -233,10 +233,10 @@ export async function uploadDocument(
       .eq('documents.episode_id', episodeId)
 
     if (allTranslations && allTranslations.length > 0 && episodeRow) {
-      const summaryInput = allTranslations.map((t) => ({
+      const summaryInput: DocumentSummaryInput[] = allTranslations.map((t) => ({
         plain_language: t.plain_language,
         what_it_means: t.what_it_means,
-        document_type: (t.documents as { type?: string } | null)?.type ?? 'document',
+        document_type: (t.documents as { type?: string } | null)?.type as DocumentSummaryInput['document_type'] ?? 'document',
         document_date: (t.documents as { document_date?: string | null } | null)?.document_date ?? null,
       }))
 

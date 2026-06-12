@@ -1,7 +1,6 @@
 import { Clock, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-type TranslationStatus = 'pending' | 'translating' | 'complete' | 'failed'
+import type { TranslationStatus } from '@/lib/types/domain'
 
 type TranslationStatusIndicatorProps = {
   status: TranslationStatus
