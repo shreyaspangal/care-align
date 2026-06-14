@@ -57,6 +57,10 @@ export default async function TasksPage({ params }: Props) {
 
       <TasksClient
         tasks={tasks}
+        defaultShowPostDischarge={
+          activeEpisode?.status === 'care_complete' ||
+          activeEpisode?.status === 'closed'
+        }
         onResolve={resolveTask}
       />
     </div>

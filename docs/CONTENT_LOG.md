@@ -297,6 +297,29 @@ The difference between `server-only` import errors and RLS enforcement. Both pre
 
 ---
 
+## Phase 10 — Episode Status Management
+
+**What did I decide?**
+
+**1. `EpisodeStatusManager` as a separate feature component, not embedded in `EpisodeSummaryPanel`.**
+The `EpisodeSummaryPanel` is display-only — it renders the AI-generated summary, task counts, and status badge. Adding a status transition control inside it would mix display and action concerns in the same component. A separate `EpisodeStatusManager` card sits below the summary panel and owns the transition UI entirely. This also means the composite `EpisodeStatusCard` stays dumb (no action injection needed) and the feature boundary is clean.
+
+**2. Inline confirm pattern, same as resolve-task.**
+The confirm step shows what the transition means in plain language before the coordinator commits ("The patient has been medically cleared and is ready for discharge. Post-discharge tasks will become visible."). Same inline banner pattern as task resolution — no new Shadcn components, same mental model for the coordinator.
+
+**3. `defaultShowPostDischarge` prop on `TasksClient`, not episode-status-aware logic inside the component.**
+When an episode is `care_complete` or `closed`, the tasks page should show post-discharge tasks by default. The RSC page knows the episode status and passes `defaultShowPostDischarge={true}` when appropriate. The component stays stateless about episode lifecycle — it just takes a default. This keeps the component reusable and the RSC page as the single source of truth for what state the data is in.
+
+**What resisted me?**
+
+A Storybook cross-test pollution: the `EpisodeStatusManager Closed` story failed due to an unhandled error from `TasksClient` completing an async transition after its own story had ended. The fix was two-pronged: add optional chaining (`result?.ok`) to guard against the mock returning `undefined` between story transitions, and fix a case-sensitive regex mismatch in the `Closed` story assertion (`/no further changes/` → `/no further changes/i`).
+
+**What did I understand?**
+
+Transition validation belongs in the server action, not the Zod schema. The schema validates shape (is `newStatus` one of the valid enum values?). The action validates semantics (is this transition legal from the current DB state?). Putting the `VALID_EPISODE_TRANSITIONS` map in the schema file and importing it into the action keeps the transition rules in one place while keeping the schema focused on shape validation.
+
+---
+
 ## ESLint Migration — Architecture Enforcement Overhaul
 
 **What did I decide?**

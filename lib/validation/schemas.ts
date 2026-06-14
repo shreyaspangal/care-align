@@ -91,6 +91,26 @@ export const ResolveTaskSchema = z.object({
 
 export type ResolveTaskInput = z.infer<typeof ResolveTaskSchema>
 
+// ─── Episode ──────────────────────────────────────────────────────────────────
+
+// Only forward transitions are valid. active→care_complete→closed.
+const VALID_EPISODE_TRANSITIONS = {
+  active: 'care_complete',
+  care_complete: 'closed',
+} as const
+
+export const UpdateEpisodeStatusSchema = z.object({
+  episodeId: z.string().uuid('Invalid episode ID.'),
+  newStatus: z.enum(['care_complete', 'closed'], {
+    error: () => ({ message: 'Invalid episode status.' }),
+  }),
+}).refine(
+  () => true, // transition legality is checked in the action against current DB state
+)
+
+export type UpdateEpisodeStatusInput = z.infer<typeof UpdateEpisodeStatusSchema>
+export { VALID_EPISODE_TRANSITIONS }
+
 // ─── Inferred Types ───────────────────────────────────────────────────────────
 
 export type LoginInput = z.infer<typeof LoginSchema>

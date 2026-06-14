@@ -6,8 +6,10 @@ import { getEpisodeDocuments } from '@/lib/dal/documents'
 import { DocumentUploadZone } from '@/components/features/DocumentUploadZone'
 import { EpisodeTimeline } from '@/components/features/EpisodeTimeline'
 import { EpisodeSummaryPanel } from '@/components/features/EpisodeSummaryPanel'
+import { EpisodeStatusManager } from '@/components/features/EpisodeStatusManager'
 import { CreateEpisodeButton } from '@/components/features/CreateEpisodeButton'
 import { uploadDocument } from '@/actions/upload-document'
+import { updateEpisodeStatus } from '@/actions/update-episode-status'
 import { ArrowLeft } from 'lucide-react'
 
 type Props = {
@@ -74,6 +76,12 @@ export default async function CoordinatorDashboardPage({ params }: Props) {
             summary={episodeSummary}
             openTaskCounts={openTaskCounts}
             patientId={patientId}
+          />
+
+          <EpisodeStatusManager
+            episodeId={activeEpisode.id}
+            currentStatus={activeEpisode.status}
+            onUpdateStatus={updateEpisodeStatus}
           />
 
           <DocumentUploadZone episodeId={activeEpisode.id} onUpload={uploadDocument} />

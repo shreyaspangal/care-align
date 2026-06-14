@@ -25,10 +25,11 @@ const CATEGORY_LABELS: Record<TaskCategory, string> = {
 
 type TasksClientProps = {
   tasks: EpisodeTask[]
+  defaultShowPostDischarge?: boolean
   onResolve: (taskId: string) => Promise<ResolveTaskResult>
 }
 
-export function TasksClient({ tasks, onResolve }: TasksClientProps) {
+export function TasksClient({ tasks, defaultShowPostDischarge = false, onResolve }: TasksClientProps) {
   const [view, setView] = useState<View>('list')
 
   // Sync from localStorage after hydration. Lazy initializer would cause an SSR/client
@@ -40,7 +41,7 @@ export function TasksClient({ tasks, onResolve }: TasksClientProps) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setView(saved)
   }, [])
-  const [showPostDischarge, setShowPostDischarge] = useState(false)
+  const [showPostDischarge, setShowPostDischarge] = useState(defaultShowPostDischarge)
   const [confirmTaskId, setConfirmTaskId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [optimisticResolved, setOptimisticResolved] = useState<Set<string>>(new Set())
@@ -57,7 +58,7 @@ export function TasksClient({ tasks, onResolve }: TasksClientProps) {
     setOptimisticResolved(prev => new Set(prev).add(id))
     startTransition(async () => {
       const result = await onResolve(id)
-      if (!result.ok) {
+      if (!result?.ok) {
         // Roll back optimistic update on failure
         setOptimisticResolved(prev => { const next = new Set(prev); next.delete(id); return next })
       }
