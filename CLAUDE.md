@@ -211,16 +211,26 @@ If any step throws: set `document.status = 'failed'`, return error to UI, do not
 
 ## Architecture Enforcement — Machine-Backed Rules
 
-Run `pnpm lint:arch` before committing (CI enforces the same). Four checks:
+Run `pnpm lint:arch` before committing. The pre-commit git hook (`.githooks/pre-commit`) runs the same checks automatically — it is activated via `git config core.hooksPath .githooks` (runs automatically on `pnpm install` via the `prepare` script).
 
-| Check | Command | What it catches |
-|-------|---------|-----------------|
-| Stories | `pnpm lint:stories` | Missing or stale `.stories.tsx` alongside any component |
-| Primitives | `pnpm lint:primitives` | Raw `<button>`/`<input>`/`<label>` in composites or features |
-| Schemas | `pnpm lint:schemas` | Server actions without `.safeParse()`; client forms missing any of the 7-rule contract; raw `console.*` in server files |
-| Types | `pnpm lint:types` | Inline domain type redefinitions; deprecated AI SDK APIs (`generateObject`, `streamObject`, `NoObjectGeneratedError`) |
+`pnpm lint:arch` runs three checks in sequence:
 
-A PostToolUse hook in `.claude/settings.json` also fires inline warnings when you write a component or form file.
+| Step | What it catches |
+|------|-----------------|
+| `tsc --noEmit` | All TypeScript type errors including unused variables and parameters |
+| `eslint` (AST-based) | Raw HTML primitives in composites/features; inline domain type redefs; deprecated AI SDK APIs; `console.*` in server files; server actions missing `.safeParse()`; unused imports/vars; floating promises; exhaustive hook deps |
+| `node scripts/check-stories.mjs` | Missing or stale `.stories.tsx` alongside any component (filesystem check — ESLint cannot do this) |
+
+**Retired scripts** (`check-primitives.mjs`, `check-schemas.mjs`, `check-types.mjs`) — deleted. Their checks now live in `eslint.config.mjs` as AST-accurate custom rules under the `carealig/` plugin namespace. The regex-based scripts had a multiline JSX gap that silently passed violations; ESLint does not.
+
+**Custom ESLint rules** (in `eslint.config.mjs`, `carealig` plugin):
+- `carealig/no-raw-html-primitives` — replaces `check-primitives.mjs`
+- `carealig/no-inline-domain-types` — replaces the type-redef check in `check-types.mjs`
+- `carealig/no-deprecated-ai-sdk` — replaces the AI SDK check in `check-types.mjs`
+- `carealig/no-console-in-server-files` — replaces the logging check in `check-schemas.mjs`
+- `carealig/server-action-requires-safeParse` — replaces the server-action check in `check-schemas.mjs`
+
+A PostToolUse hook in `.claude/settings.json` also fires `pnpm lint:arch` inline when you write a component or action file.
 
 ### Phase exit gate — run before starting the next phase
 

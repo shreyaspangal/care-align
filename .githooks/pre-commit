@@ -1,0 +1,15 @@
+#!/bin/sh
+# Pre-commit gate: typecheck + ESLint + story pairing
+# Run `git config core.hooksPath .githooks` once after cloning to activate.
+set -e
+
+echo "▶ tsc --noEmit"
+pnpm tsc --noEmit
+
+echo "▶ eslint"
+pnpm eslint "components/**/*.{ts,tsx}" "actions/**/*.{ts,tsx}" "lib/**/*.{ts,tsx}" "app/**/*.{ts,tsx}"
+
+echo "▶ lint:stories"
+node scripts/check-stories.mjs
+
+echo "✓ pre-commit checks passed"

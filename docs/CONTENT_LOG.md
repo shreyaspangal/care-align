@@ -297,6 +297,27 @@ The difference between `server-only` import errors and RLS enforcement. Both pre
 
 ---
 
+## ESLint Migration — Architecture Enforcement Overhaul
+
+**What did I decide?**
+
+**Drop the three regex scripts entirely; move everything into ESLint.**
+`check-primitives.mjs`, `check-schemas.mjs`, and `check-types.mjs` were replaced by five custom AST rules in `eslint.config.mjs` under the `carealig/` plugin namespace. `check-stories.mjs` stays — it's a filesystem existence check that ESLint can't do per-file. The trigger for this was a multiline `<button\n  onClick=...` tag that passed the regex but violated the primitive rule. The decision was not to patch the regex, but to eliminate the class of problem: regex applied to source text is permanently second-class to AST analysis.
+
+Additional standard rules added: `@typescript-eslint/no-unused-vars` (caught the dead `episodePhase` prop class), `no-floating-promises` (caught silent async fire-and-forget), `react-hooks/exhaustive-deps`, `consistent-type-imports`.
+
+**Pre-commit hook via `.githooks/`**, not Husky. No extra runtime dependency. Activated by `git config core.hooksPath .githooks` (auto-runs via `prepare` script on `pnpm install`). Runs `tsc + eslint + check-stories` before every commit — the same sequence as `pnpm lint:arch`.
+
+**What resisted me?**
+
+`eslint-config-next` already registers `@typescript-eslint` as a plugin. Importing and redeclaring it in the same flat config throws a "Cannot redefine plugin" error. Resolution: add rules in a separate config block without re-declaring the plugin — ESLint v9 flat config merges plugin registrations from earlier array entries automatically. `no-floating-promises` also requires `parserOptions.project` for typed linting; adding that to the config block resolved it.
+
+**What did I understand?**
+
+The bugs ESLint found while the codebase was being "enforced" by the old scripts: an unused import in `upload-document.ts` (`getSignedBlobUrl` — dead since the signed URL API moved to the route handler), floating promises on `handleFile()` calls in `DocumentUploadZone` (fire-and-forget errors were silently swallowed), and `setState` inside a `useEffect` for localStorage (correct behaviour, wrong pattern — moved to lazy state initializer). These weren't new bugs introduced in Phase 9. They were pre-existing. The old scripts never saw them because they didn't look for them.
+
+---
+
 ## Content Pipeline
 
 When ready to post, paste raw notes from any phase above into a Claude conversation with:
