@@ -222,6 +222,58 @@ The `check-types.mjs` script caught a false positive on its own first run: `lib/
 
 ---
 
+## Phase 7 — Coordinator Dashboard Display
+
+**What did I decide?**
+
+Two decisions, made in sequence.
+
+**1. Data Access Layer (DAL) over inline page fetchers.**
+The first version of the coordinator dashboard page had three private async functions at the bottom — `fetchEpisodeDocuments`, `fetchEpisodeSummary`, `fetchOpenTaskCounts` — each taking a shared Supabase client as a parameter. It worked, but it meant the coordinator page owned all the data logic, and the patient page (Phase 8) would have to duplicate it. The decision: extract to `lib/dal/` with `import 'server-only'` and React `cache()` on every function. Each function owns its own Supabase client. The page becomes three import lines and one `Promise.all`. When the patient page needs the same data, it's the same import — no duplication, no drift.
+
+The alternative was to keep fetchers in the page files and accept the duplication. Rejected because the DAL pattern also removes an easy-to-miss mistake: passing a stale Supabase client across functions that have different session contexts.
+
+**2. `EpisodeTimeline` as a client component receiving data as props, not fetching it.**
+The timeline needs to manage `selectedId` state (which document card is open in the sheet). That means `'use client'`. The question was whether it should also fetch its own data via a server action or prop. Chose props: the RSC page fetches everything, passes it down. The component is pure UI — state + rendering, no network calls. This also makes stories trivial (pass fixture data, no mocking required) and keeps the component testable in isolation.
+
+**What resisted me?**
+
+The Supabase nested select for `documents → document_translations → document_actions` returns the joined rows differently depending on cardinality — sometimes an array, sometimes a single object, sometimes null. The mapping code had to handle all three cases with `Array.isArray()` checks. The shape is not documented clearly; it had to be inferred from what actually came back.
+
+**What did I understand?**
+
+`React.cache()` is not the same as HTTP caching or `unstable_cache`. It deduplicates identical function calls within a single request — if the coordinator dashboard and a layout component both call `getActiveEpisode(patientId)` with the same argument, Supabase is only hit once. The cost is zero. The benefit is that you can call DAL functions freely across RSC components without worrying about over-fetching.
+
+---
+
+## Phase 8 — Patient View
+
+**What did I decide?**
+
+**1. `what_it_means` visible to patients.**
+The spec said "patient sees `plain_language` only." After looking at the actual content Claude generates, `what_it_means` is clinically useful context — it explains the significance of the document, not just what it says. Hiding it from patients makes the experience thinner without a real privacy or safety justification. Coordinator-only information is the *actions* section (task assignments, operational next steps). Plain language + what it means = what a patient needs to understand their own care.
+
+**2. `PatientSummaryPanel` as a separate component from `EpisodeSummaryPanel`.**
+The coordinator's episode summary panel shows: status badge, task counts, visit purpose, timeline summary. The patient's panel should show: plain-language status sentence, visit purpose, timeline summary. Same data, different framing. Rather than adding `viewerRole` conditionals inside `EpisodeSummaryPanel`, created a separate `PatientSummaryPanel`. The coordinator and patient views will diverge further as the product grows — a shared component with role-branching becomes harder to reason about at each branch. Two components, each with one job.
+
+**What resisted me?**
+
+The proxy redirect loop. After patient login, the auth action redirects to `/dashboard`. The proxy sees a patient on `/dashboard`, looks up their `patient_access` row, and redirects to `/patient/[id]`. This should work — but the first implementation of the proxy Rule 2 extracted `patientId` from `pathname.split('/')[2]`, which is `undefined` for `/dashboard` (no segment at index 2). The result was a redirect to `/patient/undefined`, which the proxy then had no rule for, which passed through to a 404. The loop was silent — no error, just the browser spinning.
+
+The fix required two changes: the proxy Rule 2 now queries `patient_access` when `patientId` is missing from the URL, and the auth action now does the same lookup post-login and redirects patients directly to `/patient/[id]` instead of always going to `/dashboard`.
+
+**What did I understand?**
+
+Smoke testing with Playwright caught a UX issue that unit tests and type checking cannot: the empty state message in `EpisodeTimeline` said "upload the first one above" — which is meaningless and confusing to a patient who has no upload capability. The automated test found it because it checked the actual rendered text. The fix is one conditional, but finding it required running the thing in a browser as the actual user.
+
+The deeper lesson: role-aware empty states are as important as role-aware data. A page that correctly hides coordinator data but shows coordinator-oriented copy is still broken from the patient's perspective.
+
+**One thing that surprised me:**
+
+The patient account setup exposed that the Supabase project had no patient auth user at all — only a coordinator and a patient *record*. The patient record (the medical subject) and the patient auth user (the person who logs in) are two different things linked by `patient_access`. It is easy to create one without the other. The data model is correct — but the seed data has to explicitly create both and link them, or the patient view can never be tested end-to-end.
+
+---
+
 ## Content Pipeline
 
 When ready to post, paste raw notes from any phase above into a Claude conversation with:
