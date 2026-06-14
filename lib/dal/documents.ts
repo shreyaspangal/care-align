@@ -1,0 +1,80 @@
+import 'server-only'
+import { cache } from 'react'
+import { createClient } from '@/lib/supabase/server'
+import type { DocumentType, DocumentStatus, TaskCategory, ActionFor, TaskPhase } from '@/lib/types/domain'
+
+export type DocumentAction = {
+  id: string
+  description: string
+  category: TaskCategory
+  action_for: ActionFor
+  phase_appears: TaskPhase
+}
+
+export type DocumentTranslation = {
+  plain_language: string
+  what_it_means: string
+  actions: DocumentAction[]
+}
+
+export type EpisodeDocument = {
+  id: string
+  name: string
+  type: DocumentType
+  purpose: string | null
+  document_date: string | null
+  status: DocumentStatus
+  translation: DocumentTranslation | null
+}
+
+/**
+ * Returns all non-deleted documents for an episode, sorted chronologically
+ * (documents with a known date first, nulls last, then by upload time).
+ * Each document includes its translation and extracted actions if available.
+ */
+export const getEpisodeDocuments = cache(async (episodeId: string): Promise<EpisodeDocument[]> => {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('documents')
+    .select(`
+      id, name, type, purpose, document_date, status,
+      document_translations (
+        plain_language, what_it_means,
+        document_actions ( id, description, category, action_for, phase_appears )
+      )
+    `)
+    .eq('episode_id', episodeId)
+    .is('deleted_at', null)
+    .order('document_date', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: true })
+
+  if (!data) return []
+
+  return data.map((doc) => {
+    const t = Array.isArray(doc.document_translations)
+      ? doc.document_translations[0]
+      : doc.document_translations
+
+    return {
+      id: doc.id,
+      name: doc.name,
+      type: doc.type,
+      purpose: doc.purpose,
+      document_date: doc.document_date,
+      status: doc.status,
+      translation: t
+        ? {
+            plain_language: t.plain_language,
+            what_it_means: t.what_it_means,
+            actions: (Array.isArray(t.document_actions) ? t.document_actions : []).map((a) => ({
+              id: a.id,
+              description: a.description,
+              category: a.category,
+              action_for: a.action_for,
+              phase_appears: a.phase_appears,
+            })),
+          }
+        : null,
+    }
+  })
+})

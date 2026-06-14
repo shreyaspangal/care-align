@@ -1,8 +1,13 @@
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { getActiveEpisode, getEpisodeSummary, getOpenTaskCounts } from '@/lib/dal/episodes'
+import { getEpisodeDocuments } from '@/lib/dal/documents'
 import { DocumentUploadZone } from '@/components/features/DocumentUploadZone'
+import { EpisodeTimeline } from '@/components/features/EpisodeTimeline'
+import { EpisodeSummaryPanel } from '@/components/features/EpisodeSummaryPanel'
 import { CreateEpisodeButton } from '@/components/features/CreateEpisodeButton'
+import { uploadDocument } from '@/actions/upload-document'
 import { ArrowLeft } from 'lucide-react'
 
 type Props = {
@@ -34,14 +39,15 @@ export default async function CoordinatorDashboardPage({ params }: Props) {
 
   if (!patient) notFound()
 
-  const { data: episodes } = await supabase
-    .from('episodes')
-    .select('id, status, started_at')
-    .eq('patient_id', patientId)
-    .order('started_at', { ascending: false })
-    .limit(1)
+  const activeEpisode = await getActiveEpisode(patientId)
 
-  const activeEpisode = episodes?.[0] ?? null
+  const [documents, episodeSummary, openTaskCounts] = activeEpisode
+    ? await Promise.all([
+        getEpisodeDocuments(activeEpisode.id),
+        getEpisodeSummary(activeEpisode.id),
+        getOpenTaskCounts(activeEpisode.id),
+      ])
+    : [[], null, []]
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
@@ -62,22 +68,16 @@ export default async function CoordinatorDashboardPage({ params }: Props) {
       </div>
 
       {activeEpisode ? (
-        <div className="space-y-4">
-          <div className="rounded-xl border bg-card p-4 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Active Episode</p>
-              <p className="text-xs text-muted-foreground">
-                Started{' '}
-                {new Date(activeEpisode.started_at).toLocaleDateString('en-IN', {
-                  day: 'numeric',
-                  month: 'short',
-                  year: 'numeric',
-                })}
-              </p>
-            </div>
-          </div>
+        <div className="space-y-6">
+          <EpisodeSummaryPanel
+            episodeStatus={activeEpisode.status}
+            summary={episodeSummary}
+            openTaskCounts={openTaskCounts}
+          />
 
-          <DocumentUploadZone episodeId={activeEpisode.id} />
+          <DocumentUploadZone episodeId={activeEpisode.id} onUpload={uploadDocument} />
+
+          <EpisodeTimeline documents={documents} viewerRole="coordinator" />
         </div>
       ) : (
         <div className="rounded-xl border border-dashed bg-card p-8 flex flex-col items-center gap-3 text-center">
