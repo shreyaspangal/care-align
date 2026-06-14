@@ -73,6 +73,7 @@ export default async function CoordinatorDashboardPage({ params }: Props) {
             episodeStatus={activeEpisode.status}
             summary={episodeSummary}
             openTaskCounts={openTaskCounts}
+            patientId={patientId}
           />
 
           <DocumentUploadZone episodeId={activeEpisode.id} onUpload={uploadDocument} />

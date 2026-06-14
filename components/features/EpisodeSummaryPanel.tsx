@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { EpisodeStatusCard } from '@/components/composites/EpisodeStatusCard'
 import { TaskCategoryIcon } from '@/components/primitives/TaskCategoryIcon'
 import { Separator } from '@/components/ui/separator'
@@ -16,12 +17,14 @@ type EpisodeSummaryPanelProps = {
     updated_at: string
   } | null
   openTaskCounts: TaskCount[]
+  patientId: string
 }
 
 export function EpisodeSummaryPanel({
   episodeStatus,
   summary,
   openTaskCounts,
+  patientId,
 }: EpisodeSummaryPanelProps) {
   if (!summary) {
     return (
@@ -72,9 +75,17 @@ export function EpisodeSummaryPanel({
           <>
             <Separator />
             <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Open tasks
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Open tasks
+                </p>
+                <Link
+                  href={`/dashboard/${patientId}/tasks`}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
+                >
+                  View all
+                </Link>
+              </div>
               <ul className="space-y-1.5">
                 {openTaskCounts.map(({ category, count }) => (
                   <li key={category} className="flex items-center gap-2 text-sm">

@@ -83,6 +83,14 @@ export const DocumentFileSchema = z
     'File type not supported. Upload a PDF, JPG, PNG, or HEIC file.'
   )
 
+// ─── Tasks ────────────────────────────────────────────────────────────────────
+
+export const ResolveTaskSchema = z.object({
+  taskId: z.string().uuid('Invalid task ID.'),
+})
+
+export type ResolveTaskInput = z.infer<typeof ResolveTaskSchema>
+
 // ─── Inferred Types ───────────────────────────────────────────────────────────
 
 export type LoginInput = z.infer<typeof LoginSchema>

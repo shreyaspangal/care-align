@@ -27,6 +27,7 @@ const meta = {
     episodeStatus: 'active',
     summary,
     openTaskCounts,
+    patientId: 'patient-fixture-id',
   },
 } satisfies Meta<typeof EpisodeSummaryPanel>
 

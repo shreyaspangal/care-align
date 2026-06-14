@@ -274,6 +274,29 @@ The patient account setup exposed that the Supabase project had no patient auth 
 
 ---
 
+## Phase 9 — Pending Tasks Page
+
+**What did I decide?**
+
+**1. Inline confirm banner instead of an `AlertDialog` modal.**
+The spec called for a confirm dialog before marking a task as resolved. The natural choice was `AlertDialog` from Shadcn — but `alert-dialog` wasn't installed, and the decision was whether to add a new primitive or work with what exists. Chose an inline confirm banner (a row appearing between the task list and the page footer) instead. It requires no new Shadcn component, stays in the same scroll context as the task, and is harder to accidentally dismiss (no escape/click-outside). The modal is technically "correct" UX pattern, but the inline banner is safer for a high-stakes action where accidental confirmation matters.
+
+**2. Optimistic resolve with automatic rollback on failure.**
+When the coordinator clicks "Mark as done", the UI immediately applies strikethrough (optimistic update via a local `Set<string>`). The server action runs in the background via `useTransition`. If the server action returns `ok: false`, the `Set` entry is deleted and the strikethrough reverts. This means the UI never blocks on the network call, but also never lies permanently. The alternative (wait for server confirmation before updating) creates a sluggish feel for what should be an instant action — especially on a hospital Wi-Fi connection.
+
+**3. `view toggle` persistence via `localStorage` only.**
+View preference (list vs card) is saved to `localStorage` rather than the database. It is purely a display preference, not data — it has no impact on any other user, is ephemeral per device, and adding a DB column for it would be over-engineering. The default is `list`. localStorage is read in a `useEffect` after mount, so the initial render always shows list view (SSR-safe, no hydration mismatch).
+
+**What resisted me?**
+
+The Vitest test cascade from Vite dependency optimization. Adding `next/link` to `EpisodeSummaryPanel` (which needed it for the "View all tasks" link) caused the Vite optimizer to invalidate its cache mid-test-run — this kills active connections to the `axe-core` chunk, which causes all simultaneously-running Storybook stories to fail with a fetch error. The fix: add `next/link` to `optimizeDeps.include` in `vitest.config.ts` so Vite bundles it upfront rather than discovering it lazily during a test run. The second problem: the `ResolveFlow` story assumed list view was active, but `localStorage` could persist `card` from a prior story. Fix: click the list view button explicitly at the start of that story's `play` function.
+
+**What did I understand?**
+
+The difference between `server-only` import errors and RLS enforcement. Both prevent unauthorized data access, but at different layers. `server-only` throws a build error if a DAL file is imported client-side — it makes the wrong pattern physically impossible. RLS throws a runtime database error if a query violates access policies — it makes the wrong pattern fail safely. The combination means: the wrong import path doesn't compile, and even if it did, the database query would be rejected. Defense in depth is not paranoia. It is the difference between "this should not happen" and "this cannot happen."
+
+---
+
 ## Content Pipeline
 
 When ready to post, paste raw notes from any phase above into a Claude conversation with:

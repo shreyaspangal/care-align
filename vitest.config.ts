@@ -9,6 +9,9 @@ const dirname = typeof __dirname !== 'undefined' ? __dirname : path.dirname(file
 // More info at: https://storybook.js.org/docs/next/writing-tests/integrations/vitest-addon
 export default defineConfig({
   plugins: [react()],
+  optimizeDeps: {
+    include: ['next/link'],
+  },
   resolve: {
     // Mirrors tsconfig "paths": { "@/*": ["./*"] } — alias to repo root (no src/).
     alias: {
