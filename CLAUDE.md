@@ -222,6 +222,21 @@ Run `pnpm lint:arch` before committing (CI enforces the same). Four checks:
 
 A PostToolUse hook in `.claude/settings.json` also fires inline warnings when you write a component or form file.
 
+### Phase exit gate — run before starting the next phase
+
+Every phase must be closed in this order before any new phase work begins:
+
+1. `pnpm tsc --noEmit` — zero type errors
+2. `pnpm lint:arch` — all 4 checks green
+3. `pnpm test` — all tests pass
+4. Update `docs/CONTENT_LOG.md` — answer the three questions for the phase
+5. Commit with a phase-named message (e.g. `feat: Phase 7 — coordinator dashboard display`)
+6. `git status` clean — nothing uncommitted before proceeding
+
+**Why this order matters:** Phases overlap in files. If Phase 8 starts before Phase 7 is committed, the two phases become entangled in the diff and cannot be separated cleanly. Each phase is one commit. Each commit is one phase.
+
+---
+
 ### Stop conditions
 
 - **New component, no story pattern yet** — stop, propose interface + story states, wait for sign-off.
