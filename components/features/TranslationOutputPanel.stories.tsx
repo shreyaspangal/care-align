@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, within } from 'storybook/test'
+import { expect } from 'storybook/test'
 import { TranslationOutputPanel } from './TranslationOutputPanel'
 
 const doc = {
@@ -42,26 +42,31 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 export const CoordinatorView: Story = {
-  play: async ({ canvas }) => {
-    await expect(canvas.getByText('Blood Test Report — CBC Panel')).toBeVisible()
-    await expect(canvas.getByText('What this document says')).toBeVisible()
-    await expect(canvas.getByText('Actions required')).toBeVisible()
+  play: async () => {
+    // SheetContent renders in a Radix portal on document.body, outside canvas.
+    const body = document.body
+    await expect(body.querySelector('[data-slot="sheet-title"]')).toBeTruthy()
+    await expect(body.textContent).toContain('Blood Test Report — CBC Panel')
+    await expect(body.textContent).toContain('What this document says')
+    await expect(body.textContent).toContain('Actions required')
   },
 }
 
 export const PatientView: Story = {
   args: { viewerRole: 'patient' },
-  play: async ({ canvas }) => {
-    await expect(canvas.getByText('What this document says')).toBeVisible()
-    // Actions section hidden for patient
-    await expect(canvas.queryByText('Actions required')).toBeNull()
+  play: async () => {
+    const body = document.body
+    await expect(body.textContent).toContain('What this document says')
+    // Actions section hidden from patient
+    await expect(body.textContent).not.toContain('Actions required')
   },
 }
 
 export const Loading: Story = {
   args: { translation: null },
-  play: async ({ canvas }) => {
-    await expect(canvas.getByText('Blood Test Report — CBC Panel')).toBeVisible()
+  play: async () => {
+    const body = document.body
+    await expect(body.textContent).toContain('Blood Test Report — CBC Panel')
   },
 }
 

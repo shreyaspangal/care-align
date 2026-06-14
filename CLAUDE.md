@@ -134,6 +134,12 @@ ALTER FUNCTION public.handle_new_user() OWNER TO postgres;
     - Voice interaction
     - ABDM / Eka Care integration (unless API access arrives before ship)
 
+11. **Client components never import server actions directly.** Server actions are injected as props by the parent RSC page or layout. Stories pass `fn()` from `storybook/test`. Direct imports pull `next/cache`, `next/headers`, and other Node-only modules into Vite's ESM bundler, crashing Storybook and the test runner. Pattern and worked example: `docs/COMPONENT_PLAN.md` — Server Action Injection Pattern.
+
+13. **All DB-aligned union types live in `lib/types/domain.ts` only.** Never redefine `DocumentType`, `EpisodeStatus`, `TaskCategory`, `TranslationStatus`, `DocumentStatus`, `ActionFor`, `TaskPhase`, `TaskStatus`, `UserRole`, or `AdmissionStatus` inline in any component, action, or other lib file. Import them. `pnpm lint:types` enforces this — a violation causes silent type drift when a DB enum changes.
+
+14. **AI SDK structured output uses `generateText + Output.object({ schema })`.** `generateObject` and `streamObject` are `@deprecated` in `ai@6+`. The result is `result.output` (typed). The error to catch is `NoOutputGeneratedError`, not `NoObjectGeneratedError`. File input uses `mediaType` (not `mimeType`) on the `FilePart`. See `lib/ai/classify.ts` for the canonical pattern. `pnpm lint:types` enforces this — using deprecated APIs fails CI.
+
 ---
 
 ## Data Model — Quick Reference
@@ -205,13 +211,14 @@ If any step throws: set `document.status = 'failed'`, return error to UI, do not
 
 ## Architecture Enforcement — Machine-Backed Rules
 
-Run `pnpm lint:arch` before committing (CI enforces the same). Three checks:
+Run `pnpm lint:arch` before committing (CI enforces the same). Four checks:
 
 | Check | Command | What it catches |
 |-------|---------|-----------------|
 | Stories | `pnpm lint:stories` | Missing or stale `.stories.tsx` alongside any component |
 | Primitives | `pnpm lint:primitives` | Raw `<button>`/`<input>`/`<label>` in composites or features |
 | Schemas | `pnpm lint:schemas` | Server actions without `.safeParse()`; client forms missing any of the 7-rule contract; raw `console.*` in server files |
+| Types | `pnpm lint:types` | Inline domain type redefinitions; deprecated AI SDK APIs (`generateObject`, `streamObject`, `NoObjectGeneratedError`) |
 
 A PostToolUse hook in `.claude/settings.json` also fires inline warnings when you write a component or form file.
 

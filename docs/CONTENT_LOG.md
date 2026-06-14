@@ -174,6 +174,54 @@ The `purpose` field as a dual-use column. It was designed to hold Claude's plain
 
 ---
 
+## Phase 6 — AI Pipeline + Type Enforcement
+
+**What did I decide?**
+
+Three decisions, made in sequence as the problems surfaced.
+
+**1. Verified the AI SDK against installed node_modules, not docs.**
+The subagent research returned code using `generateObject` and `mimeType` on `FilePart`. Both were wrong for the installed `ai@6.0.198` — `generateObject` is `@deprecated`, and the field is `mediaType` not `mimeType`. Neither produces a TypeScript error that's immediately obvious; `generateObject` still compiles with a deprecation warning, and the wrong field name would only surface at runtime. The decision: before writing any AI SDK call, read the installed package types directly from `node_modules`. The installed package is always ground truth. Web docs and training data are not.
+
+The correct pattern:
+```ts
+const result = await generateText({
+  model: anthropic(AI_MODELS.classify),
+  output: Output.object({ schema: ClassificationSchema }),
+  messages: [{ role: 'user', content: [
+    { type: 'text', text: prompt },
+    { type: 'file', data: fileBuffer, mediaType: mimeType },
+  ]}],
+})
+if (result.output === undefined) throw new NoOutputGeneratedError()
+return result.output
+```
+
+**2. `name_is_guessed` as an explicit boolean in the classification schema.**
+The first version of the classification prompt said "use the exact name if visible, otherwise infer a descriptive fallback." That hid the inference behind a clean name — the coordinator and the audit trail had no way to know if Claude read the name or made it up. Added `name_is_guessed: boolean` to `ClassificationSchema` and stored `[Inferred]` as a prefix in the DB when true. Accuracy in health records is non-negotiable. Guesses have to be labelled.
+
+**3. Unreadable document returns an explicit failure signal, not silent best-guesses.**
+The original prompt's fallback behaviour was "classify as other and do your best." That means a document that is a blurred photograph of a prescription could come back as `type: "other"`, `suggested_purpose: "Medication instructions"` — which looks like a successful classification but is fabricated. Changed the rule: if the document is unreadable or corrupt, return `suggested_purpose: "Document unreadable — please re-upload a clearer scan"` and null everything else. No fabrication. Silent best-guesses on health documents cause real harm downstream.
+
+**4. Single source of truth for all DB-aligned union types.**
+Ten-plus files each had slightly different inline definitions of the same types — `DocumentType`, `EpisodeStatus`, `TaskCategory`, etc. They were close enough to not cause obvious errors, but far enough to drift when a DB enum changes. Created `lib/types/domain.ts` as the single owner; all components, actions, and AI schemas import from there, never redefine. The check is machine-backed: `pnpm lint:types` (`scripts/check-types.mjs`) fails CI on any inline redefinition. A `PostToolUse` hook fires the same warning the moment a file is written.
+
+**What resisted me?**
+
+The subagent research produced confident, syntactically valid code with two silent bugs. This is the hard version of "garbage in, garbage out" — the input wasn't obviously wrong, and the output wasn't obviously broken. The resistance was accepting that the only safe path is to verify the API surface directly from the installed source, every time, before writing a single call. The temptation to trust a well-structured response from an AI that sounds authoritative is real.
+
+The type audit also resisted. Once the first duplicate definition was found, the instinct was to fix that one and move on. What actually had to happen was stopping, enumerating every file that could have an inline type definition, and fixing all of them at once — because partial cleanup leaves the codebase in a state where the rule is enforced in some files but not others, which is worse than no rule at all.
+
+**What did I understand?**
+
+The difference between a lint rule and an enforcement layer. A rule written in a doc gets read once. A lint script you have to remember to run fails silently when forgotten. A `PostToolUse` hook fires the moment you write the file — before the context window has scrolled past the decision. The same rule in three places (doc, CI script, inline hook) doesn't mean the rule is written three times. It means the feedback arrives at three different points in the workflow, each catching what the others miss.
+
+**One thing that surprised me:**
+
+The `check-types.mjs` script caught a false positive on its own first run: `lib/validation/schemas.ts` defines `DOCUMENT_TYPES` as an `as const` array, which the regex read as a type definition. The fix was a one-line exemption. But the false positive was useful: it proved the script was actually scanning the right files with the right pattern. A lint script that never fires is indistinguishable from one that has a bug. The false positive was evidence the tool was working.
+
+---
+
 ## Content Pipeline
 
 When ready to post, paste raw notes from any phase above into a Claude conversation with:

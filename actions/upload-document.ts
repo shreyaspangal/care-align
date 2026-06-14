@@ -114,9 +114,11 @@ export async function uploadDocument(
     if (NoOutputGeneratedError.isInstance(err)) {
       return fail('Could not classify document.', 'classification failed — NoOutputGenerated')
     }
-    return fail('Classification failed. Please try again.', 'classification error', {
-      error: err instanceof Error ? err.message : String(err),
-    })
+    const msg = err instanceof Error ? err.message : String(err)
+    if (msg.includes('credit balance is too low')) {
+      return fail('AI service unavailable — credit balance exhausted. Contact the administrator.', 'classification error — billing', { error: msg })
+    }
+    return fail('Classification failed. Please try again.', 'classification error', { error: msg })
   }
 
   await supabase

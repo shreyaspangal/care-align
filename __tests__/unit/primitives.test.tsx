@@ -15,7 +15,7 @@ describe('DocumentTypeTag', () => {
     ['discharge_summary', 'Discharge Summary'],
     ['bill', 'Bill'],
     ['observation_note', 'Observation Note'],
-    ['other', 'Document'],
+    ['other', 'Other'],
   ] as const
 
   it.each(types)('renders label for type=%s', (type, label) => {

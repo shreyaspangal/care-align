@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, userEvent, within } from 'storybook/test'
+import { expect, fn, userEvent, within } from 'storybook/test'
 import { Upload, AlertCircle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -17,12 +17,21 @@ import { DocumentUploadZone } from './DocumentUploadZone'
  * - **Uploading** — spinner + file name; zone is non-interactive
  * - **Error** — inline error message + "Try again" resets to idle
  * - **Custom type** — "Other (custom)" selected, text field appears
+ *
+ * NOTE: `onUpload` is injected by the parent RSC page (prop injection pattern).
+ * Stories use `fn()` — never import server actions directly in components.
+ * See docs/COMPONENT_PLAN.md for the canonical pattern.
  */
 const meta = {
   component: DocumentUploadZone,
   tags: ['autodocs'],
   parameters: { layout: 'padded' },
-  args: { episodeId: 'episode-demo-001' },
+  args: {
+    episodeId: 'episode-demo-001',
+    // fn() replaces the real server action — records calls in the Actions panel.
+    // The real action is injected by the RSC page in production.
+    onUpload: fn().mockResolvedValue({ ok: true, documentId: 'doc-preview-001' }),
+  },
 } satisfies Meta<typeof DocumentUploadZone>
 
 export default meta

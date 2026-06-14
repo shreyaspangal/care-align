@@ -309,3 +309,57 @@ When asking AI to build a composite or feature, always include:
 "Use only these existing primitives: [list]. 
 Do not create new primitive components."
 ```
+
+---
+
+## Server Action Injection Pattern
+
+**Rule:** Client components must never import server actions directly. Server actions are injected as props by the parent RSC page or layout.
+
+**Why this exists:** `'use server'` files import `next/cache`, `next/headers`, Supabase server clients, and other Node-only modules. When a client component imports one directly, Vite's ESM bundler (used by Storybook and the test runner) pulls in the full server import tree, which contains CJS constructs (`__dirname`, `createRequire`) that crash in a browser environment. The crash happens at bundle time — no alias or config workaround is reliable.
+
+**The pattern:**
+
+```tsx
+// ✗ Wrong — component imports the server action directly
+import { uploadDocument } from '@/actions/upload-document'
+
+export function DocumentUploadZone({ episodeId }) {
+  await uploadDocument(episodeId, formData)
+}
+
+// ✓ Correct — action is injected as a prop
+type UploadResult = { ok: true; documentId: string } | { ok: false; error: string }
+
+type Props = {
+  episodeId: string
+  onUpload: (episodeId: string, formData: FormData) => Promise<UploadResult>
+}
+
+export function DocumentUploadZone({ episodeId, onUpload }: Props) {
+  await onUpload(episodeId, formData)
+}
+```
+
+**In the RSC page (production):** Pass the real server action.
+```tsx
+// app/(coordinator)/dashboard/[patientId]/page.tsx
+import { uploadDocument } from '@/actions/upload-document'
+
+<DocumentUploadZone episodeId={episode.id} onUpload={uploadDocument} />
+```
+
+**In stories (tests):** Pass `fn()` from `storybook/test`.
+```tsx
+import { fn } from 'storybook/test'
+
+const meta = {
+  args: {
+    onUpload: fn().mockResolvedValue({ ok: true, documentId: 'doc-001' }),
+  },
+}
+```
+
+`fn()` records calls in the Storybook Actions panel and is inspectable in `play` functions via `expect(args.onUpload).toHaveBeenCalled()`.
+
+**Applies to:** Any client component (`'use client'`) that needs to call a server action. The component receives the action as a typed prop — it has no knowledge of which action it calls or what modules that action imports.

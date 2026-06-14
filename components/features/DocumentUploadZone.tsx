@@ -7,7 +7,6 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { uploadDocument } from '@/actions/upload-document'
 import {
   ALLOWED_MIME_TYPES,
   MAX_FILE_SIZE_BYTES,
@@ -23,14 +22,17 @@ type UploadState =
   | { status: 'uploading'; fileName: string }
   | { status: 'error'; error: string }
 
+type UploadResult = { ok: true; documentId: string } | { ok: false; error: string }
+
 type DocumentUploadZoneProps = {
   episodeId: string
+  onUpload: (episodeId: string, formData: FormData) => Promise<UploadResult>
   onUploadComplete?: (documentId: string) => void
 }
 
 const CUSTOM_TYPE_VALUE = '__custom__'
 
-export function DocumentUploadZone({ episodeId, onUploadComplete }: DocumentUploadZoneProps) {
+export function DocumentUploadZone({ episodeId, onUpload, onUploadComplete }: DocumentUploadZoneProps) {
   const [state, setState] = useState<UploadState>({ status: 'idle' })
   const [isDragging, setIsDragging] = useState(false)
   const [hints, setHints] = useState<UploadHints>({})
@@ -52,7 +54,13 @@ export function DocumentUploadZone({ episodeId, onUploadComplete }: DocumentUplo
     if (hints.custom_type) formData.append('hint_custom_type', hints.custom_type)
     if (hints.source_hospital) formData.append('hint_source_hospital', hints.source_hospital)
 
-    const result = await uploadDocument(episodeId, formData)
+    let result: UploadResult
+    try {
+      result = await onUpload(episodeId, formData)
+    } catch {
+      setState({ status: 'error', error: 'Upload failed. Please check your connection and try again.' })
+      return
+    }
 
     if (result.ok) {
       setState({ status: 'idle' })

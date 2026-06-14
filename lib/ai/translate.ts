@@ -1,7 +1,6 @@
 'server-only'
 
 import { generateText, Output, NoOutputGeneratedError } from 'ai'
-import { anthropic } from '@ai-sdk/anthropic'
 import { AI_MODELS } from './models'
 import { TranslationSchema, type Translation } from './schemas'
 
@@ -30,7 +29,7 @@ export async function translateDocument(
   patientName: string
 ): Promise<Translation> {
   const result = await generateText({
-    model: anthropic(AI_MODELS.translate),
+    model: AI_MODELS.translate,
     output: Output.object({ schema: TranslationSchema }),
     temperature: 0.1,
     messages: [

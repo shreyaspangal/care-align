@@ -1,7 +1,6 @@
 'server-only'
 
 import { generateText, Output, NoOutputGeneratedError } from 'ai'
-import { anthropic } from '@ai-sdk/anthropic'
 import { AI_MODELS } from './models'
 import { ClassificationSchema, type Classification } from './schemas'
 import { DOCUMENT_TYPES } from '@/lib/validation/schemas'
@@ -52,7 +51,7 @@ export async function classifyDocument(
   hints?: { type?: string; hospital?: string }
 ): Promise<Classification> {
   const result = await generateText({
-    model: anthropic(AI_MODELS.classify),
+    model: AI_MODELS.classify,
     output: Output.object({ schema: ClassificationSchema }),
     temperature: 0,
     messages: [

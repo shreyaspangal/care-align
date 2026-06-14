@@ -12,7 +12,7 @@ export default defineConfig({
   resolve: {
     // Mirrors tsconfig "paths": { "@/*": ["./*"] } — alias to repo root (no src/).
     alias: {
-      '@': path.resolve(__dirname, './')
+      '@': path.resolve(dirname, './')
     }
   },
   test: {

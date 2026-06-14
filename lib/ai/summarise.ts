@@ -1,7 +1,6 @@
 'server-only'
 
 import { generateText, Output, NoOutputGeneratedError } from 'ai'
-import { anthropic } from '@ai-sdk/anthropic'
 import { AI_MODELS } from './models'
 import { EpisodeSummarySchema, type EpisodeSummary } from './schemas'
 import type { DocumentSummaryInput } from '@/lib/types/domain'
@@ -42,7 +41,7 @@ export async function regenerateEpisodeSummary(
   translations: DocumentSummaryInput[]
 ): Promise<EpisodeSummary> {
   const result = await generateText({
-    model: anthropic(AI_MODELS.summarise),
+    model: AI_MODELS.summarise,
     output: Output.object({ schema: EpisodeSummarySchema }),
     temperature: 0.1,
     messages: [
