@@ -48,8 +48,10 @@ export async function resolveTask(taskId: string): Promise<ResolveTaskResult> {
   log.info('resolveTask', 'task resolved', { taskId })
 
   const patientId = (task.episodes as { patient_id?: string } | null)?.patient_id
-  if (patientId) revalidatePath(`/dashboard/${patientId}`)
-  revalidatePath(`/dashboard/${patientId}/tasks`)
+  if (patientId) {
+    revalidatePath(`/dashboard/${patientId}`)
+    revalidatePath(`/dashboard/${patientId}/tasks`)
+  }
 
   return { ok: true }
 }

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { fn, expect, userEvent, within } from 'storybook/test'
+import { fn, expect, userEvent } from 'storybook/test'
 import { TasksClient } from './TasksClient'
 
 /**
@@ -8,7 +8,7 @@ import { TasksClient } from './TasksClient'
  * Key interactive states:
  * - List vs card view toggle (persisted in localStorage)
  * - Phase filter: "during_care" by default; toggle reveals post_discharge
- * - Resolve confirms via AlertDialog, then applies optimistic strikethrough
+ * - Resolve confirms inline, then applies optimistic strikethrough
  * - All-complete empty state when every visible task is resolved
  */
 const meta = {
@@ -16,7 +16,6 @@ const meta = {
   tags: ['autodocs'],
   parameters: { layout: 'padded' },
   args: {
-    episodePhase: 'during_care',
     onResolve: fn().mockResolvedValue({ ok: true }),
   },
 } satisfies Meta<typeof TasksClient>

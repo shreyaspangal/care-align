@@ -78,7 +78,7 @@ export function DocumentUploadZone({ episodeId, onUpload, onUploadComplete }: Do
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (file) handleFile(file)
+    if (file) void handleFile(file)
     e.target.value = ''
   }
 
@@ -86,7 +86,7 @@ export function DocumentUploadZone({ episodeId, onUpload, onUploadComplete }: Do
     e.preventDefault()
     setIsDragging(false)
     const file = e.dataTransfer.files?.[0]
-    if (file) handleFile(file)
+    if (file) void handleFile(file)
   }
 
   function handleTypeChange(value: string) {

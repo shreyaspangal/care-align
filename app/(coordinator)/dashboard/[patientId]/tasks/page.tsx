@@ -57,7 +57,6 @@ export default async function TasksPage({ params }: Props) {
 
       <TasksClient
         tasks={tasks}
-        episodePhase={activeEpisode?.status === 'care_complete' || activeEpisode?.status === 'closed' ? 'post_discharge' : 'during_care'}
         onResolve={resolveTask}
       />
     </div>

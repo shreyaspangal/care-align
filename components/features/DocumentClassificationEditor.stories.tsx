@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, within, userEvent } from 'storybook/test'
+import { expect, userEvent } from 'storybook/test'
 import { DocumentClassificationEditor } from './DocumentClassificationEditor'
 
 const meta = {

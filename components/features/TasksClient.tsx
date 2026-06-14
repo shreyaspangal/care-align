@@ -6,11 +6,12 @@ import { Button } from '@/components/ui/button'
 import { PendingTaskRow } from '@/components/composites/PendingTaskRow'
 import { TaskCategoryIcon } from '@/components/primitives/TaskCategoryIcon'
 import { Badge } from '@/components/ui/badge'
-import type { TaskCategory, TaskPhase } from '@/lib/types/domain'
+import type { TaskCategory } from '@/lib/types/domain'
 import type { EpisodeTask } from '@/lib/dal/tasks'
 import type { ResolveTaskResult } from '@/actions/resolve-task'
 
 type View = 'list' | 'card'
+type TaskWithStatus = EpisodeTask & { status: EpisodeTask['status'] }
 
 const CATEGORY_LABELS: Record<TaskCategory, string> = {
   insurance: 'Insurance',
@@ -24,22 +25,25 @@ const CATEGORY_LABELS: Record<TaskCategory, string> = {
 
 type TasksClientProps = {
   tasks: EpisodeTask[]
-  episodePhase: TaskPhase
   onResolve: (taskId: string) => Promise<ResolveTaskResult>
 }
 
-export function TasksClient({ tasks, episodePhase, onResolve }: TasksClientProps) {
+export function TasksClient({ tasks, onResolve }: TasksClientProps) {
   const [view, setView] = useState<View>('list')
+
+  // Sync from localStorage after hydration. Lazy initializer would cause an SSR/client
+  // mismatch when the saved value differs from the default. This effect runs once on
+  // mount (client-only) and is the correct pattern for external store hydration.
+  useEffect(() => {
+    const saved = localStorage.getItem('tasks-view') as View | null
+    if (saved !== 'list' && saved !== 'card') return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setView(saved)
+  }, [])
   const [showPostDischarge, setShowPostDischarge] = useState(false)
   const [confirmTaskId, setConfirmTaskId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [optimisticResolved, setOptimisticResolved] = useState<Set<string>>(new Set())
-
-  // Persist view preference across page refreshes
-  useEffect(() => {
-    const saved = localStorage.getItem('tasks-view') as View | null
-    if (saved === 'list' || saved === 'card') setView(saved)
-  }, [])
 
   const handleViewToggle = (v: View) => {
     setView(v)
@@ -73,11 +77,11 @@ export function TasksClient({ tasks, episodePhase, onResolve }: TasksClientProps
   const hasPostDischarge = tasks.some(t => t.phase_appears === 'post_discharge')
   const allResolved = tasksWithStatus.length > 0 && openCount === 0
 
-  const grouped = tasksWithStatus.reduce<Record<TaskCategory, EpisodeTask[]>>((acc, t) => {
+  const grouped = tasksWithStatus.reduce<Partial<Record<TaskCategory, TaskWithStatus[]>>>((acc, t) => {
     if (!acc[t.category]) acc[t.category] = []
-    acc[t.category].push(t)
+    acc[t.category]!.push(t)
     return acc
-  }, {} as Record<TaskCategory, EpisodeTask[]>)
+  }, {})
 
   const categoryOrder: TaskCategory[] = [
     'medication', 'doctor_visit', 'test_results', 'insurance', 'payment', 'forms', 'lifestyle',
@@ -104,20 +108,24 @@ export function TasksClient({ tasks, episodePhase, onResolve }: TasksClientProps
             </Button>
           )}
           <div className="flex border rounded-md overflow-hidden">
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => handleViewToggle('list')}
-              className={`px-2.5 py-1.5 transition-colors ${view === 'list' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`rounded-none px-2.5 py-1.5 h-auto ${view === 'list' ? 'bg-muted text-foreground' : 'text-muted-foreground'}`}
               aria-label="List view"
             >
               <LayoutList size={15} />
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => handleViewToggle('card')}
-              className={`px-2.5 py-1.5 transition-colors ${view === 'card' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`rounded-none px-2.5 py-1.5 h-auto ${view === 'card' ? 'bg-muted text-foreground' : 'text-muted-foreground'}`}
               aria-label="Card view"
             >
               <LayoutGrid size={15} />
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -166,7 +174,7 @@ export function TasksClient({ tasks, episodePhase, onResolve }: TasksClientProps
                 </span>
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
-                {grouped[category].map(task => (
+                {grouped[category]!.map(task => (
                   <div
                     key={task.id}
                     className={`border rounded-lg p-3.5 bg-card space-y-2.5 ${task.status === 'resolved' ? 'opacity-50' : ''}`}
