@@ -58,12 +58,22 @@ export async function proxy(request: NextRequest) {
 
     const role = profile?.role
 
-    // Rule 2: patient trying to reach a coordinator route → redirect to their view
+    // Rule 2: patient trying to reach a coordinator route → redirect to their patient view.
+    // We look up their patient_access row to find their patientId, since /dashboard has
+    // no patientId in the path when coming from a post-login redirect.
     if (role === 'patient' && pathname.startsWith('/dashboard')) {
-      const patientId = pathname.split('/')[2]
-      if (patientId) {
-        return NextResponse.redirect(new URL(`/patient/${patientId}`, request.url))
+      const { data: access } = await supabase
+        .from('patient_access')
+        .select('patient_id')
+        .eq('user_id', user.id)
+        .eq('role', 'patient')
+        .limit(1)
+        .single()
+
+      if (access?.patient_id) {
+        return NextResponse.redirect(new URL(`/patient/${access.patient_id}`, request.url))
       }
+      // No patient record linked — send to login
       return NextResponse.redirect(new URL('/login', request.url))
     }
 
@@ -75,8 +85,20 @@ export async function proxy(request: NextRequest) {
       }
     }
 
-    // Rule 4: logged-in user hitting /login or /register → send home
+    // Rule 4: logged-in user hitting /login or /register → send to their role home
     if (pathname.startsWith('/login') || pathname.startsWith('/register')) {
+      if (role === 'patient') {
+        const { data: access } = await supabase
+          .from('patient_access')
+          .select('patient_id')
+          .eq('user_id', user.id)
+          .eq('role', 'patient')
+          .limit(1)
+          .single()
+        if (access?.patient_id) {
+          return NextResponse.redirect(new URL(`/patient/${access.patient_id}`, request.url))
+        }
+      }
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
   }

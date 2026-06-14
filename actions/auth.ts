@@ -26,7 +26,31 @@ export async function login(_prev: AuthState, formData: FormData): Promise<AuthS
     return { error: 'Incorrect email or password. Please try again.' }
   }
 
-  log.info('login', 'sign-in successful', { email: parsed.data.email })
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.role === 'patient') {
+      const { data: access } = await supabase
+        .from('patient_access')
+        .select('patient_id')
+        .eq('user_id', user.id)
+        .eq('role', 'patient')
+        .limit(1)
+        .single()
+
+      if (access?.patient_id) {
+        log.info('login', 'sign-in successful — patient', { email: parsed.data.email })
+        redirect(`/patient/${access.patient_id}`)
+      }
+    }
+  }
+
+  log.info('login', 'sign-in successful — coordinator', { email: parsed.data.email })
   redirect('/dashboard')
 }
 

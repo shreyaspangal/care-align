@@ -1,5 +1,9 @@
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getActiveEpisode, getEpisodeSummary } from '@/lib/dal/episodes'
+import { getEpisodeDocuments } from '@/lib/dal/documents'
+import { PatientSummaryPanel } from '@/components/features/PatientSummaryPanel'
+import { EpisodeTimeline } from '@/components/features/EpisodeTimeline'
 
 type Props = {
   params: Promise<{ patientId: string }>
@@ -24,20 +28,20 @@ export default async function PatientViewPage({ params }: Props) {
 
   const { data: patient } = await supabase
     .from('patients')
-    .select('id, name, admission_status')
+    .select('id, name')
     .eq('id', patientId)
     .single()
 
   if (!patient) notFound()
 
-  const { data: episodes } = await supabase
-    .from('episodes')
-    .select('id, status, started_at')
-    .eq('patient_id', patientId)
-    .order('started_at', { ascending: false })
-    .limit(1)
+  const activeEpisode = await getActiveEpisode(patientId)
 
-  const episode = episodes?.[0] ?? null
+  const [documents, episodeSummary] = activeEpisode
+    ? await Promise.all([
+        getEpisodeDocuments(activeEpisode.id),
+        getEpisodeSummary(activeEpisode.id),
+      ])
+    : [[], null]
 
   return (
     <div className="max-w-xl mx-auto px-4 py-8 space-y-6">
@@ -48,20 +52,14 @@ export default async function PatientViewPage({ params }: Props) {
         </p>
       </div>
 
-      {episode ? (
-        <div className="rounded-xl border bg-card p-6 space-y-2">
-          <p className="text-sm font-medium text-muted-foreground">Your current hospitalisation</p>
-          <p className="text-sm">
-            Started{' '}
-            {new Date(episode.started_at).toLocaleDateString('en-IN', {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-            })}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Your coordinator is uploading your documents. Explanations will appear here shortly.
-          </p>
+      {activeEpisode ? (
+        <div className="space-y-6">
+          <PatientSummaryPanel
+            episodeStatus={activeEpisode.status}
+            summary={episodeSummary}
+          />
+
+          <EpisodeTimeline documents={documents} viewerRole="patient" />
         </div>
       ) : (
         <div className="rounded-xl border border-dashed bg-card p-8 text-center text-muted-foreground text-sm">
