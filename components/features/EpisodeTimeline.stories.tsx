@@ -117,7 +117,7 @@ export const MixedStates: Story = {
     await expect(canvas.getByText('Translated')).toBeVisible()
     await expect(canvas.getByText('Translating...')).toBeVisible()
     await expect(canvas.getByText('Pending')).toBeVisible()
-    await expect(canvas.getByText('Failed — tap to retry')).toBeVisible()
+    await expect(canvas.getByText('Failed')).toBeVisible()
   },
 }
 

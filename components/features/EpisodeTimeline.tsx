@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { DocumentCard } from '@/components/composites/DocumentCard'
 import { TranslationOutputPanel, type PanelDocument, type PanelTranslation } from './TranslationOutputPanel'
 import type { DocumentStatus, TranslationStatus } from '@/lib/types/domain'
@@ -11,7 +12,7 @@ export type TimelineDocument = EpisodeDocument
 type EpisodeTimelineProps = {
   documents: TimelineDocument[]
   viewerRole: 'coordinator' | 'patient'
-  onDelete?: (documentId: string) => void
+  onDelete?: (documentId: string) => Promise<{ ok: boolean; error?: string }>
 }
 
 function toTranslationStatus(status: DocumentStatus): TranslationStatus {
@@ -68,7 +69,10 @@ export function EpisodeTimeline({ documents, viewerRole, onDelete }: EpisodeTime
               translation_status: toTranslationStatus(doc.status),
             }}
             onClick={() => setSelectedId(doc.id)}
-            onDelete={onDelete ? () => onDelete(doc.id) : undefined}
+            onDelete={onDelete ? async () => {
+              const result = await onDelete(doc.id)
+              if (!result.ok) toast.error(result.error ?? 'Failed to delete document.')
+            } : undefined}
           />
         ))}
       </div>

@@ -14,7 +14,7 @@ const config: Record<
   pending: { icon: Clock, label: 'Pending', className: 'text-gray-500' },
   translating: { icon: Loader2, label: 'Translating...', className: 'text-blue-600', animate: true },
   complete: { icon: CheckCircle, label: 'Translated', className: 'text-green-600' },
-  failed: { icon: AlertTriangle, label: 'Failed — tap to retry', className: 'text-red-600' },
+  failed: { icon: AlertTriangle, label: 'Failed', className: 'text-red-600' },
 }
 
 export function TranslationStatusIndicator({ status, onRetry }: TranslationStatusIndicatorProps) {

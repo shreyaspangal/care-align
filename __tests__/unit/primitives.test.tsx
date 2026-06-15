@@ -97,7 +97,7 @@ describe('TranslationStatusIndicator', () => {
 
   it('renders failed state with retry text', () => {
     render(<TranslationStatusIndicator status="failed" />)
-    expect(screen.getByText('Failed — tap to retry')).toBeInTheDocument()
+    expect(screen.getByText('Failed')).toBeInTheDocument()
   })
 
   it('calls onRetry when failed and clicked', async () => {

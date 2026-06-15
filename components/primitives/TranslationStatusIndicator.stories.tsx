@@ -41,7 +41,7 @@ export const Failed: Story = {
   play: async ({ canvas, args }) => {
     const btn = canvas.getByRole('button')
     await expect(btn).toBeVisible()
-    await expect(btn).toHaveTextContent('Failed — tap to retry')
+    await expect(btn).toHaveTextContent('Failed')
     // Clicking calls onRetry
     btn.click()
     await expect(args.onRetry).toHaveBeenCalledOnce()
