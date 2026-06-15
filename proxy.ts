@@ -58,7 +58,27 @@ export async function proxy(request: NextRequest) {
 
     const role = profile?.role
 
-    // Rule 2: patient trying to reach a coordinator route → redirect to their patient view.
+    // Rule 2: authenticated user at root → send to their role home.
+    if (pathname === '/') {
+      if (role === 'coordinator') {
+        return NextResponse.redirect(new URL('/dashboard', request.url))
+      }
+      if (role === 'patient') {
+        const { data: access } = await supabase
+          .from('patient_access')
+          .select('patient_id')
+          .eq('user_id', user.id)
+          .eq('role', 'patient')
+          .limit(1)
+          .single()
+        if (access?.patient_id) {
+          return NextResponse.redirect(new URL(`/patient/${access.patient_id}`, request.url))
+        }
+      }
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
+
+    // Rule 4: patient trying to reach a coordinator route → redirect to their patient view.
     // We look up their patient_access row to find their patientId, since /dashboard has
     // no patientId in the path when coming from a post-login redirect.
     if (role === 'patient' && pathname.startsWith('/dashboard')) {
@@ -77,7 +97,7 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
 
-    // Rule 3: coordinator trying to reach a patient-only route → redirect to dashboard
+    // Rule 5: coordinator trying to reach a patient-only route → redirect to dashboard
     if (role === 'coordinator' && pathname.startsWith('/patient')) {
       const patientId = pathname.split('/')[2]
       if (patientId) {
@@ -85,7 +105,7 @@ export async function proxy(request: NextRequest) {
       }
     }
 
-    // Rule 4: logged-in user hitting /login or /register → send to their role home
+    // Rule 6: logged-in user hitting /login or /register → send to their role home
     if (pathname.startsWith('/login') || pathname.startsWith('/register')) {
       if (role === 'patient') {
         const { data: access } = await supabase
