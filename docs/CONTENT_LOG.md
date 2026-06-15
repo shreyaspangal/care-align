@@ -477,6 +477,23 @@ The migration existed. The SQL was correct. The migration had simply never been 
 
 ---
 
+## Phase 13 — Loading States
+
+**Commit:** (see git log)
+
+**What did I decide?**
+Added `loading.tsx` skeleton screens to all four async RSC routes: the coordinator patient list, the coordinator patient detail page, the tasks page, and the patient view. The decision was between adding loading skeletons now versus deferring until after deployment. Chose now — a page that shows nothing for one to two seconds while data loads is noticeably worse for a user who is already under stress in a hospital setting. The skeletons are cheap to write and directly serve the product quality bar.
+
+The audit also confirmed that all empty states were already present and correct: no patients, no active episode, no documents, no tasks, all tasks resolved, no episode summary — every zero-state had copy. Loading and empty states are different problems. Loading is about the time between request and data. Empty is about what happens when the data is zero. Both need to be handled, and they were being conflated. Clarifying that distinction let the audit go faster.
+
+**What resisted me?**
+Nothing technically difficult. The friction was recognising that the empty states were already done and not doubling the work. The temptation was to rewrite them anyway on the grounds that consistency might be lacking. Resisted it — the audit showed they were fine, and rewriting working code for aesthetic reasons is waste.
+
+**What did I understand?**
+Next.js `loading.tsx` files work via React Suspense at the segment level. The layout renders immediately; the loading skeleton shows while the page component awaits its data fetches. This means the header and navigation are interactive from the first paint — only the page body is deferred. The user sees structure instantly. The skeleton matches the shape of the content that will replace it, so the layout does not shift when the data arrives. The skeleton is not a progress indicator — it is a shape promise.
+
+---
+
 ## Content Pipeline
 
 When ready to post, paste raw notes from any phase above into a Claude conversation with:
