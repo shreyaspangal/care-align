@@ -210,3 +210,40 @@
     @apply font-heading;
   }
 }
+
+/* ── Reusable visual utilities ─────────────────────────────────────────────── */
+
+/* iOS squircle shape — used for app icons, clay assets */
+.squircle {
+  border-radius: 25.3%;
+}
+
+/* Clay material — teal variant. Matte radial gradient with specular highlight.
+   Use on a .squircle div or any container for the Clay-inspired app icon look. */
+.clay-teal {
+  background: radial-gradient(
+    ellipse at 38% 32%,
+    oklch(0.72 0.09 183) 0%,
+    oklch(0.52 0.12 183) 38%,
+    oklch(0.38 0.11 183) 68%,
+    oklch(0.28 0.09 183) 100%
+  );
+  box-shadow:
+    0 16px 48px oklch(0.44 0.11 183 / 0.40),
+    0 4px 12px oklch(0 0 0 / 0.22),
+    inset 0 1px 0 oklch(1 0 0 / 0.18),
+    inset 0 -2px 6px oklch(0 0 0 / 0.18);
+}
+
+/* Gentle float — used on clay icons and hero assets */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-6px); }
+}
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-float { animation: none; }
+}
