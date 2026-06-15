@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { expect, fn, userEvent } from 'storybook/test'
-import { Upload, AlertCircle, Loader2 } from 'lucide-react'
+import { Upload, AlertCircle, Loader2, CheckCircle2, Circle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { DocumentUploadZone } from './DocumentUploadZone'
@@ -25,7 +25,7 @@ import { DocumentUploadZone } from './DocumentUploadZone'
 const meta = {
   component: DocumentUploadZone,
   tags: ['autodocs'],
-  parameters: { layout: 'padded' },
+  parameters: { layout: 'padded', nextjs: { appDirectory: true } },
   args: {
     episodeId: 'episode-demo-001',
     // fn() replaces the real server action — records calls in the Actions panel.
@@ -76,21 +76,72 @@ export const CustomType: Story = {
   },
 }
 
-// ─── Uploading ────────────────────────────────────────────────────────────────
+// ─── Uploading — stage 1: uploading file ─────────────────────────────────────
 
 export const Uploading: Story = {
+  name: 'Uploading — stage 1: uploading file',
   render: () => (
-    <div className="border-2 border-dashed border-primary/30 rounded-xl p-8 flex flex-col items-center gap-3 text-center bg-primary/5">
-      <Loader2 className="animate-spin text-primary" size={28} />
-      <div>
-        <p className="text-sm font-medium">Uploading discharge_summary.pdf</p>
-        <p className="text-xs text-muted-foreground mt-0.5">Please wait…</p>
+    <div className="border-2 border-dashed border-primary/30 rounded-xl p-6 flex flex-col items-center gap-4 bg-primary/5">
+      <Loader2 className="animate-spin text-primary" size={24} />
+      <div className="w-full max-w-xs space-y-2">
+        {[
+          { label: 'Uploading file',                state: 'current' },
+          { label: 'Classifying document',          state: 'pending' },
+          { label: 'Translating to plain language', state: 'pending' },
+          { label: 'Updating episode summary',      state: 'pending' },
+        ].map(({ label, state }) => (
+          <div key={label} className="flex items-center gap-2.5">
+            {state === 'done'    ? <CheckCircle2 size={15} className="text-primary shrink-0" /> :
+             state === 'current' ? <Loader2 size={15} className="animate-spin text-primary shrink-0" /> :
+                                   <Circle size={15} className="text-muted-foreground/30 shrink-0" />}
+            <span className={cn(
+              'text-sm',
+              state === 'current' ? 'font-medium text-foreground' :
+              state === 'done'    ? 'text-muted-foreground line-through' :
+                                    'text-muted-foreground/50'
+            )}>{label}</span>
+          </div>
+        ))}
       </div>
+      <p className="text-xs text-muted-foreground">discharge_summary.pdf · usually 20–30 seconds</p>
     </div>
   ),
   play: async ({ canvas }) => {
-    await expect(canvas.getByText('Uploading discharge_summary.pdf')).toBeVisible()
-    await expect(canvas.getByText('Please wait…')).toBeVisible()
+    await expect(canvas.getByText('Uploading file')).toBeVisible()
+    await expect(canvas.getByText('discharge_summary.pdf · usually 20–30 seconds')).toBeVisible()
+  },
+}
+
+export const UploadingClassifying: Story = {
+  name: 'Uploading — stage 2: classifying',
+  render: () => (
+    <div className="border-2 border-dashed border-primary/30 rounded-xl p-6 flex flex-col items-center gap-4 bg-primary/5">
+      <Loader2 className="animate-spin text-primary" size={24} />
+      <div className="w-full max-w-xs space-y-2">
+        {[
+          { label: 'Uploading file',                state: 'done' },
+          { label: 'Classifying document',          state: 'current' },
+          { label: 'Translating to plain language', state: 'pending' },
+          { label: 'Updating episode summary',      state: 'pending' },
+        ].map(({ label, state }) => (
+          <div key={label} className="flex items-center gap-2.5">
+            {state === 'done'    ? <CheckCircle2 size={15} className="text-primary shrink-0" /> :
+             state === 'current' ? <Loader2 size={15} className="animate-spin text-primary shrink-0" /> :
+                                   <Circle size={15} className="text-muted-foreground/30 shrink-0" />}
+            <span className={cn(
+              'text-sm',
+              state === 'current' ? 'font-medium text-foreground' :
+              state === 'done'    ? 'text-muted-foreground line-through' :
+                                    'text-muted-foreground/50'
+            )}>{label}</span>
+          </div>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">discharge_summary.pdf · usually 20–30 seconds</p>
+    </div>
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText('Classifying document')).toBeVisible()
   },
 }
 

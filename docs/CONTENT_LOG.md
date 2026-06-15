@@ -297,6 +297,34 @@ The difference between `server-only` import errors and RLS enforcement. Both pre
 
 ---
 
+## Phase 11 — UX Polish
+
+**What did I decide?**
+
+**1. Bottom tab navigation via a nested RSC layout, not individual pages.**
+Adding `app/(coordinator)/dashboard/[patientId]/layout.tsx` wraps both the overview and tasks pages without touching either page. The `PatientTabNav` client component gets `patientId` from the layout (RSC) and uses `usePathname()` for active state. This is cleaner than repeating nav in each page — one layout change covers all current and future sub-routes.
+
+**2. Progress steps for the patient null state instead of a pulsing skeleton.**
+The patient arrives having handed over their medical documents to a coordinator they may not fully trust yet. A loading skeleton communicates "something is happening" without explaining what. Three explicit steps — episode open ✓, coordinator reviewing ↻, summary coming soon ○ — tell the patient exactly where they are in the process and set expectations. The anxiety management principle from MyChart research: the UX must immediately signal that the patient is in the right place and someone is working for them.
+
+**3. `what_it_means` gets a tinted background box, not just a section header.**
+Both sections had the same visual weight — grey uppercase label + paragraph. A reader scanning the translation panel couldn't immediately tell where "what the document says" ended and "what this means for you" began. The `bg-muted/50` tinted box creates a clear break without adding a Separator or changing the layout.
+
+**4. Patient EpisodeTimeline filters to translated-only.**
+Showing pending/failed doc states to patients adds anxiety without utility. A patient seeing "Failed — tap to retry" has no ability to act on it and no context for what failed. Only `translated` documents surface in the patient timeline. The coordinator still sees everything.
+
+**What resisted me?**
+
+`usePathname()` returns `null` in Storybook (no Next.js router context). The worktree agent wrote `pathname.endsWith('/tasks')` which throws on null. Fix: `(pathname ?? '').endsWith('/tasks')`. The pattern is standard for any component that reads router state in stories — always guard against null from `usePathname`.
+
+The git worktree left by the subagent was picked up by Vitest as a new test root, causing an unrelated test from the worktree's `__tests__/` to appear in the main suite and fail. Removed the worktree after copying files.
+
+**What did I understand?**
+
+Healthcare UX research consistently surfaces one principle that V1 implementations miss: the empty state is not a loading state — it is a communication moment. A patient landing on a page with skeleton bars and generic copy is not reassured; they're confused. The progress steps pattern (done / in-progress / pending) is borrowed from package tracking and works for exactly the same reason: it tells users where they are in a process they cannot control.
+
+---
+
 ## Phase 10 — Episode Status Management
 
 **What did I decide?**
@@ -338,6 +366,114 @@ Additional standard rules added: `@typescript-eslint/no-unused-vars` (caught the
 **What did I understand?**
 
 The bugs ESLint found while the codebase was being "enforced" by the old scripts: an unused import in `upload-document.ts` (`getSignedBlobUrl` — dead since the signed URL API moved to the route handler), floating promises on `handleFile()` calls in `DocumentUploadZone` (fire-and-forget errors were silently swallowed), and `setState` inside a `useEffect` for localStorage (correct behaviour, wrong pattern — moved to lazy state initializer). These weren't new bugs introduced in Phase 9. They were pre-existing. The old scripts never saw them because they didn't look for them.
+
+---
+
+## Phase 12 — Upload Progress Indication, AI Pipeline Debugging, and Observability
+
+**What did I decide?**
+
+**1. Timer-based stage progression instead of a real-time server stream.**
+The upload pipeline runs synchronously in a single server action — blob upload → classify → translate → summarise. There is no way to push stage updates to the client without restructuring the entire pipeline into streaming or polling. The decision was to estimate: four named stages with hard-coded start thresholds (0s, 4s, 12s, 22s) derived from real timing observations. This shows the coordinator what the pipeline is doing without any backend changes. The alternative was an indeterminate spinner with no context — which was the complaint that triggered this work.
+
+**2. State reset from the event handler, not the effect.**
+The interval for elapsed-second tracking starts in a `useEffect`. The natural pattern is also to reset elapsed to 0 in the same effect when upload status ends. ESLint's `react-hooks/set-state-in-effect` rule blocks this — calling `setState` synchronously in the effect body causes cascading renders. Moving the reset to `handleFile()` (the event handler that triggers the upload) is actually the correct pattern: the reset is part of the event, not a reaction to state change.
+
+**3. Observability before fixes — switch to plain `generateText` to expose what the model actually returned.**
+After two hypothesis-driven fixes both failed (see "What resisted me"), the decision was to stop guessing and add observability first. The specific change: remove `Output.object()` temporarily and use plain `generateText` so `result.text` — the raw model output — is always accessible for logging. This immediately produced logs showing exactly what the model returned, which field failed validation, and why. Once the real cause was diagnosed, the approach was restored to `Output.object()` (the Vercel-recommended pattern) with a targeted catch block that reads the raw text from the error object's `.text` property.
+
+**4. `Output.object()` restored with error-level observability via `NoObjectGeneratedError.text`.**
+`Output.object()` is the correct pattern per the Vercel AI SDK docs — it handles JSON extraction and Zod validation automatically and returns a fully-typed result. The final implementation keeps `Output.object()` and wraps the `generateText` call in a try-catch. When `Output.object()` fails, it internally throws `NoObjectGeneratedError` (not the public `NoOutputGeneratedError`) — and that error carries a `.text` property containing the raw model output. We read it without importing the deprecated class (ESLint only checks import specifiers, not property access). This gives the SDK's clean abstraction on the success path and full diagnostic information on any failure path.
+
+**5. `description` field added to the translate prompt — the actual root cause.**
+The translate prompt listed three of the four required fields for each action object (`action_for`, `category`, `phase_appears`) and silently omitted `description`. The model followed the prompt literally and omitted the field. The JSON was valid; the schema validation failed. This is what every prior fix had missed — not because the model or the SDK was broken, but because the prompt was incomplete.
+
+**6. Unapplied migration surfaced by the pipeline succeeding.**
+Once translation worked, two new DB insert errors appeared: `"Could not find the 'category' column of 'document_actions' in the schema cache"` and `"Could not find the 'action_for' column of 'pending_tasks' in the schema cache"`. The migration `20240105000000_action_classification_columns.sql` — written in Phase 6 pre-work to add these columns — had never been applied to the live Supabase project. The local schema and the remote schema had drifted silently. Fix: `pnpm supabase db push`, which applied the single pending migration and resolved both insert failures. `supabase` is a project dev dependency, not a globally installed CLI — running it via `pnpm supabase` rather than bare `supabase` is the correct invocation.
+
+**What resisted me?**
+
+**The translation failure produced three consecutive wrong fixes before the right one.**
+
+This is worth documenting in full because the pattern — confident diagnosis, applied fix, same failure — is common when working at the boundary between application code and AI model behaviour.
+
+**Wrong fix 1 — prompt wording and temperature.**
+First hypothesis: the model wasn't told to return JSON, and temperature 0.1 was adding randomness. Added "Return structured JSON only. No preamble." and set temperature to 0. Rational guess. Didn't fix it. The upload still failed with "Invalid JSON response" on the next attempt.
+
+**Wrong fix 2 — missing enum values in the prompt.**
+Second hypothesis: the model was guessing enum values it hadn't been told. Added the full list of valid `category` and `phase_appears` values to the prompt. Also rational. Also didn't fix the core issue. The model was already producing valid JSON — the enum values were not the problem.
+
+Neither fix was wrong in isolation — both improvements belong in the prompt. But neither addressed the actual failure, because neither fix was based on evidence of what the model was actually returning. Both were based on reasoning about what might be wrong.
+
+**Why `Output.object()` hid the evidence.**
+When `Output.object()` fails — whether from a JSON parse error or a Zod validation failure — it throws immediately before returning the result object. `result.text`, which holds the raw model output, is not accessible in a catch block. The error message "Invalid JSON response" was the only information available, and it was misleading: it implied a JSON syntax failure, when the actual failure was a schema validation failure on valid JSON.
+
+**The observability switch — what it revealed.**
+Replacing `Output.object()` with plain `generateText` made `result.text` always available. Immediately, the logs showed:
+
+```
+hadCodeFences: false          ← not a code fence issue
+length: 1084                  ← model returned a full response
+preview: { "plain_language": "..."  ← valid JSON, correct structure
+```
+
+And then: `Zod validation failed: actions.0.description: Invalid input: expected string, received undefined`
+
+The model returned valid JSON. The enum values were correct. The field `description` was simply absent from every action object — because the prompt never mentioned it.
+
+**The model tier effect — tool calling availability is the real difference, not prompt-following quality.**
+The development model is `google/gemma-4-31b-it:free` via OpenRouter. The production model is `claude-haiku-4-5-20251001` via Anthropic. The difference that actually matters is not how well each model follows instructions — it is what mechanism `Output.object()` uses under the hood with each.
+
+With **Anthropic**, `Output.object()` uses **tool calling**. The schema is sent to the API as a tool definition. The model is forced to respond by invoking that tool with arguments that match the schema. The JSON is structurally guaranteed before it ever reaches the AI SDK's parsing layer. A missing field is impossible — the API enforces it at generation time, not at validation time.
+
+With **Gemma via OpenRouter**, tool calling is not available. `Output.object()` falls back to **prompt-based JSON extraction**: it adds a JSON instruction to the prompt and then tries to parse whatever text the model returns. The schema is a hint, not a constraint. A missing field is entirely possible — the model produces what the prompt describes, and if the prompt doesn't describe `description`, the field doesn't appear.
+
+This is why classification worked and translation failed with the same `Output.object()` call. Classification uses a flat schema with simple scalar fields — easier to produce correctly from prompt alone. Translation uses a nested array of action objects each requiring four specific fields with constrained enum values — more surface area for prompt-based extraction to miss. The tool calling gap widened exactly at the point of maximum schema complexity.
+
+The implication reaches further than just prompting. `Output.object()` is the correct production pattern precisely because in production, with Anthropic, it provides schema enforcement at the API level. In development with a free model, the same API call degrades silently to prompt-based extraction with no enforcement at all. The abstraction looks identical on both sides; the behaviour is fundamentally different. This makes the dev/prod model gap not just a matter of output quality but a matter of which reliability guarantees are actually in effect.
+
+Prompts must be complete enough to work when tool calling is unavailable and the model is the only enforcement layer. That is the hardest version of the constraint.
+
+**The `onFinish` hook investigation — and why it wouldn't have worked.**
+The initial restoration plan was to use `generateText`'s `onFinish` callback as the observability hook — it fires when the model finishes generating, and receives the raw text. After checking the AI SDK source in `node_modules`, this turned out to be wrong: `onFinish` is called after `parseCompleteOutput` runs. If `Output.object()` throws during parsing, `onFinish` is never called. The evidence was already in the error object — `NoObjectGeneratedError` has a `.text` property — but reading the source was the only way to know that. The assumption that `onFinish` was the right hook was itself a guess; verifying it against `node_modules` (the same principle from Phase 6) changed the implementation.
+
+**Three ESLint violations on a single component — caught in seconds, not hours.**
+The progress indicator in `DocumentUploadZone` required three attempts to get past `pnpm lint:arch`, each violation teaching something different about the React rendering model:
+
+Attempt 1 — `setElapsed(0)` inside `useEffect` body → `react-hooks/set-state-in-effect`. Synchronous setState in an effect body triggers cascading renders.
+
+Attempt 2 — Replace with a ref (`uploadStartRef.current = Date.now()`) and compute elapsed in render → `react-hooks/refs`. Refs are mutable but not watched — reading them in render produces a component that renders once and silently freezes. And on the same line: `Date.now()` in render → `react-hooks/purity`. Components must be pure functions; `Date.now()` makes the same inputs produce different outputs across renders.
+
+Final solution — `elapsed` state, reset from the event handler (`handleFile`), incremented via interval callback. The effect only starts and stops the interval; it writes nothing directly.
+
+These violations were caught by the `PostToolUse` hook firing `pnpm lint:arch` automatically the moment each file was written. Not at a phase exit gate. Not by the developer noticing. Seconds after the code existed.
+
+**The unapplied migration was invisible until the pipeline succeeded.**
+The `document_actions` and `pending_tasks` insert failures (`"Could not find the 'category' column"`, `"Could not find the 'action_for' column"`) were logged as warnings — pipeline continued, episode summary still generated. The upload appeared to succeed from the user's perspective. The DB inserts for the AI-extracted actions were silently dropped. This kind of silent data loss is exactly what the "continue on non-fatal error" pattern is supposed to surface in logs rather than hide — and it did. But it only became visible once the translation itself was working. While translation was failing, the insert errors were never reached.
+
+**What did I understand?**
+
+**Three detection layers, three classes of bug, no overlap between them.**
+
+Static analysis (`pnpm lint:arch`, `tsc`, ESLint) catches code structure violations — wrong React patterns, type errors, deprecated API usage. Tests catch logic errors — the component does what it's supposed to do given known inputs. Runtime usage catches AI behaviour — whether the model follows the prompt. Each layer is necessary. None is sufficient. The three ESLint violations in the progress component would never have appeared in any test. The missing `description` field in the prompt would never have appeared in ESLint. The unapplied migration would never have appeared until the pipeline that writes to those columns actually ran.
+
+**`Output.object()` uses one error class for two structurally different failure modes.**
+`NoObjectGeneratedError` is thrown in two distinct situations: when `JSON.parse` fails on the model's response text (actual invalid JSON — syntax error), and when the JSON parses successfully but fails Zod schema validation (valid JSON, wrong shape). Both cases produce the same error class, and the default surface message for both is "Invalid JSON response." This is the structural reason the error was misleading — it was not merely uninformative, it was actively pointing at the wrong failure mode. The actual failure was a schema validation error on valid JSON. The error message implied a syntax error. Two rounds of diagnosis followed from that mismatch.
+
+**`Output.object()` has an internal automatic retry mechanism — and its disappearance was a signal.**
+The first upload failure logged `"Failed after 3 attempts. Last error: Invalid JSON response"`. The second upload failure (after wrong fix 1) logged just `"Invalid JSON response"` with no retry prefix. That change was not random. `Output.object()` retries automatically on certain failure types — giving the model another chance before surfacing the error. When the retry prefix disappeared after the prompt change, it indicated the error type had changed in some way the SDK's retry logic treats differently. We did not read this signal during debugging. Had we noticed it, it would have told us the failure mode was shifting even when the visible error message looked identical.
+
+**`NoOutputGeneratedError` (public API) and `NoObjectGeneratedError` (internal) are different classes with different properties.**
+The Vercel AI SDK's public API deprecates `NoObjectGeneratedError` in favour of `NoOutputGeneratedError` — our ESLint rule flags any import of the old class. But `Output.object()` internally throws `NoObjectGeneratedError` to this day, and it is `NoObjectGeneratedError` that carries the `.text` property with the raw model output. `NoOutputGeneratedError` — the public replacement — does not have `.text`. The asymmetry between the public naming and the internal implementation is what made the catch block work: we access `(err as { text?: string }).text` without importing the deprecated class. ESLint only enforces at import declaration level; property access on a caught error is not flagged. The raw text was always in the thrown error — it was accessible all along without switching away from `Output.object()`. We just didn't know to look there, and we couldn't have known without reading the `node_modules` source directly.
+
+**The cost of a misleading error message.**
+"Invalid JSON response" from `Output.object()` is not wrong — it is what the SDK calls both parsing and validation failures under the same name. But it costs multiple rounds of diagnosis because it implies a different problem than what actually happened. The lesson is not that SDK error messages should be more precise (they cannot anticipate every downstream failure mode). The lesson is that any AI pipeline step needs logging of the raw model output on failure — regardless of what abstraction layer sits above it. That information has to be captured before the abstraction throws, because after it throws, only the error message remains.
+
+**The dev/prod model gap is a testing gap, not a configuration gap.**
+Switching the dev model to a free OpenRouter model was the right cost decision. But it created a hidden assumption: that a prompt sufficient for Anthropic is sufficient for any model. It isn't. The right principle: prompts must be complete enough to work with a model that follows instructions literally and has no training-data familiarity with your schema. If a prompt relies on the model inferring what wasn't said, it will fail with the wrong model — and the failure will look like an SDK or infrastructure problem before it looks like a prompt problem.
+
+**Schema drift between local migrations and remote DB is silent until the affected code runs.**
+The migration existed. The SQL was correct. The migration had simply never been pushed. There is no compile-time check for this, no type error, no lint violation. The only thing that surfaces it is running the pipeline against a real database. In production, this kind of drift causes silent data loss — the insert fails, the error is logged, the pipeline continues, and the coordinator never sees the tasks that Claude extracted from their patient's document. The fix is one command (`pnpm supabase db push`), but the detection requires actually running the thing.
 
 ---
 

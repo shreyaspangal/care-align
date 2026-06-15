@@ -1,7 +1,8 @@
 'use client'
 
-import { useRef, useState } from 'react'
-import { Upload, AlertCircle, Loader2, ChevronDown } from 'lucide-react'
+import { useRef, useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { Upload, AlertCircle, Loader2, ChevronDown, CheckCircle2, Circle } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -16,6 +17,22 @@ import {
   type UploadHints,
 } from '@/lib/validation/schemas'
 import { validateDocumentFile } from '@/lib/storage/validate'
+
+type UploadStage = 'uploading' | 'classifying' | 'translating' | 'summarising'
+
+const PIPELINE_STAGES: { key: UploadStage; label: string; startAt: number }[] = [
+  { key: 'uploading',   label: 'Uploading file',                startAt: 0  },
+  { key: 'classifying', label: 'Classifying document',          startAt: 4  },
+  { key: 'translating', label: 'Translating to plain language', startAt: 12 },
+  { key: 'summarising', label: 'Updating episode summary',      startAt: 22 },
+]
+
+function getCurrentStage(elapsed: number): UploadStage {
+  if (elapsed >= 22) return 'summarising'
+  if (elapsed >= 12) return 'translating'
+  if (elapsed >= 4)  return 'classifying'
+  return 'uploading'
+}
 
 type UploadState =
   | { status: 'idle' }
@@ -33,11 +50,19 @@ type DocumentUploadZoneProps = {
 const CUSTOM_TYPE_VALUE = '__custom__'
 
 export function DocumentUploadZone({ episodeId, onUpload, onUploadComplete }: DocumentUploadZoneProps) {
+  const router = useRouter()
   const [state, setState] = useState<UploadState>({ status: 'idle' })
   const [isDragging, setIsDragging] = useState(false)
   const [hints, setHints] = useState<UploadHints>({})
   const [showCustomType, setShowCustomType] = useState(false)
+  const [elapsed, setElapsed] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (state.status !== 'uploading') return
+    const id = setInterval(() => setElapsed(s => s + 1), 1000)
+    return () => clearInterval(id)
+  }, [state.status])
 
   async function handleFile(file: File) {
     const validation = validateDocumentFile(file)
@@ -46,6 +71,7 @@ export function DocumentUploadZone({ episodeId, onUpload, onUploadComplete }: Do
       return
     }
 
+    setElapsed(0)
     setState({ status: 'uploading', fileName: file.name })
 
     const formData = new FormData()
@@ -70,6 +96,7 @@ export function DocumentUploadZone({ episodeId, onUpload, onUploadComplete }: Do
         description: 'AI classification is running in the background.',
         duration: 5000,
       })
+      router.refresh()
       onUploadComplete?.(result.documentId)
     } else {
       setState({ status: 'error', error: result.error })
@@ -106,13 +133,36 @@ export function DocumentUploadZone({ episodeId, onUpload, onUploadComplete }: Do
   const maxMb = MAX_FILE_SIZE_BYTES / (1024 * 1024)
 
   if (state.status === 'uploading') {
+    const currentStage = getCurrentStage(elapsed)
+    const currentIdx = PIPELINE_STAGES.findIndex(s => s.key === currentStage)
+
     return (
-      <div className="border-2 border-dashed border-primary/30 rounded-xl p-8 flex flex-col items-center gap-3 text-center bg-primary/5">
-        <Loader2 className="animate-spin text-primary" size={28} />
-        <div>
-          <p className="text-sm font-medium">Uploading {state.fileName}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Please wait…</p>
+      <div className="border-2 border-dashed border-primary/30 rounded-xl p-6 flex flex-col items-center gap-4 bg-primary/5">
+        <Loader2 className="animate-spin text-primary" size={24} />
+        <div className="w-full max-w-xs space-y-2">
+          {PIPELINE_STAGES.map((stage, i) => {
+            const isDone = i < currentIdx
+            const isCurrent = i === currentIdx
+            return (
+              <div key={stage.key} className="flex items-center gap-2.5">
+                {isDone ? (
+                  <CheckCircle2 size={15} className="text-primary shrink-0" />
+                ) : isCurrent ? (
+                  <Loader2 size={15} className="animate-spin text-primary shrink-0" />
+                ) : (
+                  <Circle size={15} className="text-muted-foreground/30 shrink-0" />
+                )}
+                <span className={cn(
+                  'text-sm',
+                  isCurrent ? 'font-medium text-foreground' : isDone ? 'text-muted-foreground line-through' : 'text-muted-foreground/50'
+                )}>
+                  {stage.label}
+                </span>
+              </div>
+            )
+          })}
         </div>
+        <p className="text-xs text-muted-foreground">{state.fileName} · usually 20–30 seconds</p>
       </div>
     )
   }
