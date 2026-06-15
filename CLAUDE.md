@@ -229,6 +229,23 @@ Run `pnpm lint:arch` before committing. The pre-commit git hook (`.githooks/pre-
 - `carealig/no-deprecated-ai-sdk` — replaces the AI SDK check in `check-types.mjs`
 - `carealig/no-console-in-server-files` — replaces the logging check in `check-schemas.mjs`
 - `carealig/server-action-requires-safeParse` — replaces the server-action check in `check-schemas.mjs`
+- `carealig/no-raw-color-values` — no raw `oklch()`/`#hex`/`rgb()` in `className` or `style` props; all colors must use design token Tailwind classes or `var(--token)`
+
+**Design token naming convention** (`globals.css` → `@theme inline` → Tailwind utilities):
+
+Every semantic color namespace follows the same suffix pattern so themes can be swapped by redefining variables:
+
+| Suffix | Role | Example class |
+|--------|------|---------------|
+| `-base` | Solid fill — buttons, icons, strong text | `bg-brand-base` |
+| `-on` | Text/icon on top of a `-base` fill | `text-brand-on` |
+| `-tint` | Very light background wash | `bg-brand-tint` |
+| `-border` | Borders and dividers in this context | `border-brand-border` |
+| `-surface` | Page-level background tint (larger areas) | `bg-patient-surface` |
+
+Current namespaces: `brand` (coordinator), `patient`, `ai`, `success`. Adding a new role (e.g. doctor): define `--doctor-base/on/tint/border/surface` in `:root` and register in `@theme inline`. For a new theme, redefine all `--brand-*` vars under `[data-theme="x"]`.
+
+**Never use arbitrary color values** (`text-[oklch(...)]`, `bg-[#fff]`, `style={{ color: '#...' }}`). The lint rule blocks this at CI. For a confirmed one-off exception: add `// eslint-disable-next-line carealig/no-raw-color-values` with a brief justification.
 
 A PostToolUse hook in `.claude/settings.json` also fires `pnpm lint:arch` inline when you write a component or action file.
 

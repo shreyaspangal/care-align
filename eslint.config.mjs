@@ -239,6 +239,92 @@ const carealigPlugin = {
         }
       },
     },
+
+    // Rule 6 — No raw color values in className arbitrary syntax or style props.
+    // All colors must reference a design token via a Tailwind class or var(--token).
+    //
+    // Forbidden:  className="bg-[oklch(0.44_0.11_183)]"
+    // Forbidden:  style={{ color: '#3b82f6' }}
+    // Allowed:    className="bg-brand-base"
+    // Allowed:    style={{ color: 'var(--brand-base)' }}
+    //
+    // For one-off exceptions confirmed by the product owner, add an eslint-disable-next-line
+    // comment with a brief justification.
+    'no-raw-color-values': {
+      meta: {
+        type: 'problem',
+        docs: { description: 'Use design token classes or var(--token) — no raw color values' },
+        schema: [],
+        messages: {
+          rawColorInClass:
+            'Raw color in className "{{value}}" — use a token class (bg-brand-base) or CSS variable',
+          rawColorInStyle:
+            'Raw color in style prop "{{key}}: {{value}}" — use var(--token-name) instead',
+        },
+      },
+      create(context) {
+        // Matches arbitrary Tailwind classes with raw color functions or hex codes
+        const ARBITRARY_COLOR_RE =
+          /(?:^|\s)[\w-]+-\[(?:oklch|rgb|rgba|hsl|hsla|color)\s*\(|(?:^|\s)[\w-]+-\[#[0-9a-fA-F]{3,8}\]/g
+
+        // Matches raw color values that are NOT wrapped in var()
+        const RAW_COLOR_VALUE_RE =
+          /^(?:oklch|rgb|rgba|hsl|hsla|color)\s*\(|^#[0-9a-fA-F]{3,8}$/
+
+        function checkClassName(value, node) {
+          const matches = value.match(ARBITRARY_COLOR_RE)
+          if (!matches) return
+          for (const match of matches) {
+            context.report({
+              node,
+              messageId: 'rawColorInClass',
+              data: { value: match.trim() },
+            })
+          }
+        }
+
+        return {
+          JSXAttribute(node) {
+            // ── className="..." ──
+            if (node.name.name === 'className') {
+              if (node.value?.type === 'Literal' && typeof node.value.value === 'string') {
+                checkClassName(node.value.value, node)
+              }
+              if (node.value?.type === 'JSXExpressionContainer') {
+                const expr = node.value.expression
+                if (expr.type === 'TemplateLiteral') {
+                  for (const quasi of expr.quasis) {
+                    checkClassName(quasi.value.raw, node)
+                  }
+                }
+              }
+            }
+
+            // ── style={{ key: 'raw-color' }} ──
+            if (node.name.name === 'style') {
+              const container = node.value
+              if (container?.type !== 'JSXExpressionContainer') return
+              const obj = container.expression
+              if (obj.type !== 'ObjectExpression') return
+              for (const prop of obj.properties) {
+                if (prop.type !== 'Property') continue
+                const val = prop.value
+                if (val.type === 'Literal' && typeof val.value === 'string') {
+                  if (RAW_COLOR_VALUE_RE.test(val.value.trim())) {
+                    const key = prop.key.type === 'Identifier' ? prop.key.name : prop.key.value
+                    context.report({
+                      node: prop,
+                      messageId: 'rawColorInStyle',
+                      data: { key, value: val.value },
+                    })
+                  }
+                }
+              }
+            }
+          },
+        }
+      },
+    },
   },
 }
 
@@ -311,6 +397,7 @@ export default defineConfig([
       'carealig/no-deprecated-ai-sdk': 'error',
       'carealig/no-console-in-server-files': 'error',
       'carealig/server-action-requires-safeParse': 'error',
+      'carealig/no-raw-color-values': 'error',
     },
   },
 
