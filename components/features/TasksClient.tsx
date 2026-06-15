@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
+import { toast } from 'sonner'
 import { LayoutList, LayoutGrid, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PendingTaskRow } from '@/components/composites/PendingTaskRow'
@@ -58,7 +59,10 @@ export function TasksClient({ tasks, defaultShowPostDischarge = false, onResolve
     setOptimisticResolved(prev => new Set(prev).add(id))
     startTransition(async () => {
       const result = await onResolve(id)
-      if (!result?.ok) {
+      if (result?.ok) {
+        toast.success('Task marked as done')
+      } else {
+        toast.error(result?.error ?? 'Failed to resolve task')
         // Roll back optimistic update on failure
         setOptimisticResolved(prev => { const next = new Set(prev); next.delete(id); return next })
       }
@@ -113,7 +117,7 @@ export function TasksClient({ tasks, defaultShowPostDischarge = false, onResolve
               variant="ghost"
               size="sm"
               onClick={() => handleViewToggle('list')}
-              className={`rounded-none px-2.5 py-1.5 h-auto ${view === 'list' ? 'bg-muted text-foreground' : 'text-muted-foreground'}`}
+              className={`rounded-none px-2.5 py-1.5 h-auto min-h-[44px] min-w-[44px] ${view === 'list' ? 'bg-muted text-foreground' : 'text-muted-foreground'}`}
               aria-label="List view"
             >
               <LayoutList size={15} />
@@ -122,7 +126,7 @@ export function TasksClient({ tasks, defaultShowPostDischarge = false, onResolve
               variant="ghost"
               size="sm"
               onClick={() => handleViewToggle('card')}
-              className={`rounded-none px-2.5 py-1.5 h-auto ${view === 'card' ? 'bg-muted text-foreground' : 'text-muted-foreground'}`}
+              className={`rounded-none px-2.5 py-1.5 h-auto min-h-[44px] min-w-[44px] ${view === 'card' ? 'bg-muted text-foreground' : 'text-muted-foreground'}`}
               aria-label="Card view"
             >
               <LayoutGrid size={15} />

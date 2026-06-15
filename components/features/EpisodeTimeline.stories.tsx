@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect } from 'storybook/test'
+import { expect, fn } from 'storybook/test'
 import { EpisodeTimeline } from './EpisodeTimeline'
 import type { TimelineDocument } from './EpisodeTimeline'
 
@@ -86,7 +86,7 @@ const failedDoc: TimelineDocument = {
 export const Empty: Story = {
   args: { documents: [] },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText('No documents yet — upload the first one above.')).toBeVisible()
+    await expect(canvas.getByText('No documents yet — get started by uploading the first one above.')).toBeVisible()
   },
 }
 
@@ -94,7 +94,7 @@ export const EmptyPatientView: Story = {
   name: 'Empty — patient view',
   args: { documents: [], viewerRole: 'patient' },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText('No documents yet. Your coordinator will upload them shortly.')).toBeVisible()
+    await expect(canvas.getByText('No documents have been processed yet. Your coordinator is working on it.')).toBeVisible()
   },
 }
 
@@ -118,6 +118,18 @@ export const MixedStates: Story = {
     await expect(canvas.getByText('Translating...')).toBeVisible()
     await expect(canvas.getByText('Pending')).toBeVisible()
     await expect(canvas.getByText('Failed — tap to retry')).toBeVisible()
+  },
+}
+
+export const WithDelete: Story = {
+  name: 'With delete buttons (coordinator)',
+  args: {
+    documents: [translatedDoc, pendingDoc],
+    onDelete: fn(),
+  },
+  play: async ({ canvas }) => {
+    const deleteButtons = canvas.getAllByRole('button', { name: 'Delete document' })
+    await expect(deleteButtons).toHaveLength(2)
   },
 }
 

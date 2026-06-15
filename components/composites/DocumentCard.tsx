@@ -1,5 +1,7 @@
+import { Trash2 } from 'lucide-react'
 import { DocumentTypeTag } from '@/components/primitives/DocumentTypeTag'
 import { TranslationStatusIndicator } from '@/components/primitives/TranslationStatusIndicator'
+import { Button } from '@/components/ui/button'
 import type { DocumentType, TranslationStatus } from '@/lib/types/domain'
 
 type DocumentCardProps = {
@@ -13,11 +15,12 @@ type DocumentCardProps = {
   }
   onClick?: () => void
   onRetry?: () => void
+  onDelete?: () => void
 }
 
-export function DocumentCard({ document, onClick, onRetry }: DocumentCardProps) {
+export function DocumentCard({ document, onClick, onRetry, onDelete }: DocumentCardProps) {
   return (
-    // div + role/keyboard so nested retry button stays valid HTML
+    // div + role/keyboard so nested action buttons stay valid HTML
     <div
       role="button"
       tabIndex={0}
@@ -27,9 +30,22 @@ export function DocumentCard({ document, onClick, onRetry }: DocumentCardProps) 
     >
       <div className="flex items-start justify-between gap-2 mb-2">
         <DocumentTypeTag type={document.type} />
-        <span className="text-xs text-muted-foreground shrink-0">
-          {document.document_date ?? 'Date unknown'}
-        </span>
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="text-xs text-muted-foreground">
+            {document.document_date ?? 'Date unknown'}
+          </span>
+          {onDelete && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-auto p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              onClick={(e) => { e.stopPropagation(); onDelete() }}
+              aria-label="Delete document"
+            >
+              <Trash2 size={13} />
+            </Button>
+          )}
+        </div>
       </div>
 
       <p className="text-sm font-medium text-foreground leading-snug mb-1">

@@ -89,7 +89,12 @@ export const ResolveTaskSchema = z.object({
   taskId: z.string().uuid('Invalid task ID.'),
 })
 
+export const DeleteDocumentSchema = z.object({
+  documentId: z.string().uuid('Invalid document ID.'),
+})
+
 export type ResolveTaskInput = z.infer<typeof ResolveTaskSchema>
+export type DeleteDocumentInput = z.infer<typeof DeleteDocumentSchema>
 
 // ─── Episode ──────────────────────────────────────────────────────────────────
 

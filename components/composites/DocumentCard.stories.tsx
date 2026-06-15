@@ -69,6 +69,14 @@ export const NullDateAndPurpose: Story = {
   },
 }
 
+export const WithDelete: Story = {
+  name: 'With delete button (coordinator)',
+  args: { document: base, onClick: fn(), onDelete: fn() },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole('button', { name: 'Delete document' })).toBeVisible()
+  },
+}
+
 export const AllDocumentTypes: Story = {
   name: 'All document types',
   args: { document: base },

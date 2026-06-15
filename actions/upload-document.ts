@@ -140,15 +140,16 @@ export async function uploadDocument(
 
   // ── Translation ────────────────────────────────────────────────────────────
 
-  // Fetch patient name for personalised prompts
+  // Fetch patient name for personalised prompts and patientId for revalidation
   const { data: episode } = await supabase
     .from('episodes')
-    .select('patients(profiles(name))')
+    .select('patient_id, patients(profiles(name))')
     .eq('id', episodeId)
     .single()
 
   const patientName =
     (episode?.patients as { profiles?: { name?: string } } | null)?.profiles?.name ?? 'the patient'
+  const patientId = episode?.patient_id as string | undefined
 
   let translation
   try {
@@ -258,7 +259,10 @@ export async function uploadDocument(
     })
   }
 
-  revalidatePath(`/dashboard/${episodeId}`)
+  if (patientId) {
+    revalidatePath(`/dashboard/${patientId}`)
+    revalidatePath(`/dashboard/${patientId}/tasks`)
+  }
   log.info('upload', 'pipeline complete', { documentId, episodeId })
   return { ok: true, documentId }
 }

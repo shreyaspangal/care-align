@@ -25,7 +25,6 @@ export default async function PatientLayout({
       <header className="border-b bg-background px-4 h-14 flex items-center justify-between">
         <span className="font-semibold text-sm">CareAlign</span>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-muted-foreground">{profile.name}</span>
           <form action={logout}>
             <button type="submit" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Sign out

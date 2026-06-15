@@ -11,6 +11,7 @@ export type TimelineDocument = EpisodeDocument
 type EpisodeTimelineProps = {
   documents: TimelineDocument[]
   viewerRole: 'coordinator' | 'patient'
+  onDelete?: (documentId: string) => void
 }
 
 function toTranslationStatus(status: DocumentStatus): TranslationStatus {
@@ -22,10 +23,14 @@ function toTranslationStatus(status: DocumentStatus): TranslationStatus {
   }
 }
 
-export function EpisodeTimeline({ documents, viewerRole }: EpisodeTimelineProps) {
+export function EpisodeTimeline({ documents, viewerRole, onDelete }: EpisodeTimelineProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  const selected = documents.find((d) => d.id === selectedId) ?? null
+  const visibleDocuments = viewerRole === 'patient'
+    ? documents.filter(d => d.status === 'translated')
+    : documents
+
+  const selected = visibleDocuments.find((d) => d.id === selectedId) ?? null
 
   const panelDocument: PanelDocument | null = selected
     ? {
@@ -38,12 +43,12 @@ export function EpisodeTimeline({ documents, viewerRole }: EpisodeTimelineProps)
 
   const panelTranslation: PanelTranslation | null = selected?.translation ?? null
 
-  if (documents.length === 0) {
+  if (visibleDocuments.length === 0) {
     return (
       <p className="text-sm text-muted-foreground text-center py-6">
         {viewerRole === 'coordinator'
-          ? 'No documents yet — upload the first one above.'
-          : 'No documents yet. Your coordinator will upload them shortly.'}
+          ? 'No documents yet — get started by uploading the first one above.'
+          : 'No documents have been processed yet. Your coordinator is working on it.'}
       </p>
     )
   }
@@ -51,7 +56,7 @@ export function EpisodeTimeline({ documents, viewerRole }: EpisodeTimelineProps)
   return (
     <>
       <div className="space-y-3">
-        {documents.map((doc) => (
+        {visibleDocuments.map((doc) => (
           <DocumentCard
             key={doc.id}
             document={{
@@ -63,6 +68,7 @@ export function EpisodeTimeline({ documents, viewerRole }: EpisodeTimelineProps)
               translation_status: toTranslationStatus(doc.status),
             }}
             onClick={() => setSelectedId(doc.id)}
+            onDelete={onDelete ? () => onDelete(doc.id) : undefined}
           />
         ))}
       </div>

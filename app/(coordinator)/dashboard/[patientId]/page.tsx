@@ -6,10 +6,11 @@ import { getEpisodeDocuments } from '@/lib/dal/documents'
 import { DocumentUploadZone } from '@/components/features/DocumentUploadZone'
 import { EpisodeTimeline } from '@/components/features/EpisodeTimeline'
 import { EpisodeSummaryPanel } from '@/components/features/EpisodeSummaryPanel'
-import { EpisodeStatusManager } from '@/components/features/EpisodeStatusManager'
 import { CreateEpisodeButton } from '@/components/features/CreateEpisodeButton'
+import { Separator } from '@/components/ui/separator'
 import { uploadDocument } from '@/actions/upload-document'
 import { updateEpisodeStatus } from '@/actions/update-episode-status'
+import { deleteDocument } from '@/actions/delete-document'
 import { ArrowLeft } from 'lucide-react'
 
 type Props = {
@@ -72,21 +73,37 @@ export default async function CoordinatorDashboardPage({ params }: Props) {
       {activeEpisode ? (
         <div className="space-y-6">
           <EpisodeSummaryPanel
+            episodeId={activeEpisode.id}
             episodeStatus={activeEpisode.status}
             summary={episodeSummary}
             openTaskCounts={openTaskCounts}
             patientId={patientId}
-          />
-
-          <EpisodeStatusManager
-            episodeId={activeEpisode.id}
-            currentStatus={activeEpisode.status}
             onUpdateStatus={updateEpisodeStatus}
           />
 
-          <DocumentUploadZone episodeId={activeEpisode.id} onUpload={uploadDocument} />
-
-          <EpisodeTimeline documents={documents} viewerRole="coordinator" />
+          <div className="border rounded-xl bg-card overflow-hidden">
+            <div className="px-5 py-4 border-b flex items-center justify-between">
+              <p className="text-sm font-medium">Documents</p>
+              {documents.length > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {documents.length} {documents.length === 1 ? 'document' : 'documents'}
+                </span>
+              )}
+            </div>
+            <div className="p-5 space-y-5">
+              <DocumentUploadZone episodeId={activeEpisode.id} onUpload={uploadDocument} />
+              {documents.length > 0 && (
+                <>
+                  <Separator />
+                  <EpisodeTimeline
+                    documents={documents}
+                    viewerRole="coordinator"
+                    onDelete={deleteDocument}
+                  />
+                </>
+              )}
+            </div>
+          </div>
         </div>
       ) : (
         <div className="rounded-xl border border-dashed bg-card p-8 flex flex-col items-center gap-3 text-center">

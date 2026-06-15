@@ -75,9 +75,9 @@ export function TranslationOutputPanel({
               <p className="text-sm leading-relaxed">{translation.plain_language}</p>
             </section>
 
-            <section className="space-y-1.5">
+            <section className="space-y-1.5 rounded-lg bg-muted/50 p-3.5">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                What this means
+                What this means for you
               </p>
               <p className="text-sm leading-relaxed">{translation.what_it_means}</p>
             </section>

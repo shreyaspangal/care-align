@@ -59,14 +59,15 @@ export const Closed: Story = {
 }
 
 export const NoSummaryYet: Story = {
-  name: 'No summary yet (loading state)',
+  name: 'No summary yet (progress steps)',
   args: {
     episodeStatus: 'active',
     summary: null,
   },
   play: async ({ canvas }) => {
-    await expect(
-      canvas.getByText('Your coordinator is reviewing your documents. A summary will appear here shortly.')
-    ).toBeVisible()
+    await expect(canvas.getByText('Your care status')).toBeVisible()
+    await expect(canvas.getByText('Your care episode is open')).toBeVisible()
+    await expect(canvas.getByText('Your coordinator is reviewing your documents')).toBeVisible()
+    await expect(canvas.getByText('Your summary will appear here once ready')).toBeVisible()
   },
 }

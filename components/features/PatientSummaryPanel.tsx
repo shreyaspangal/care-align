@@ -12,13 +12,30 @@ type PatientSummaryPanelProps = {
 export function PatientSummaryPanel({ episodeStatus, summary }: PatientSummaryPanelProps) {
   if (!summary) {
     return (
-      <div className="border rounded-xl p-5 bg-card space-y-3">
-        <div className="h-4 bg-muted rounded animate-pulse w-1/3" />
-        <div className="h-3 bg-muted rounded animate-pulse w-full" />
-        <div className="h-3 bg-muted rounded animate-pulse w-5/6" />
-        <p className="text-xs text-muted-foreground pt-1">
-          Your coordinator is reviewing your documents. A summary will appear here shortly.
+      <div className="border rounded-xl p-5 bg-card space-y-4">
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          Your care status
         </p>
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-green-600"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <p className="text-sm">Your care episode is open</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary animate-spin" style={{animationDuration:'3s'}}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            </div>
+            <p className="text-sm text-muted-foreground">Your coordinator is reviewing your documents</p>
+          </div>
+          <div className="flex items-center gap-3 opacity-40">
+            <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center shrink-0">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </div>
+            <p className="text-sm text-muted-foreground">Your summary will appear here once ready</p>
+          </div>
+        </div>
       </div>
     )
   }
