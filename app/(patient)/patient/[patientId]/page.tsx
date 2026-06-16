@@ -1,4 +1,4 @@
-import { redirect, notFound } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getActiveEpisode, getEpisodeSummary } from '@/lib/dal/episodes'
 import { getEpisodeDocuments } from '@/lib/dal/documents'
@@ -24,7 +24,16 @@ export default async function PatientViewPage({ params }: Props) {
     .eq('patient_id', patientId)
     .single()
 
-  if (!access || access.role !== 'patient') notFound()
+  if (!access || access.role !== 'patient') {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 text-center space-y-2">
+        <p className="text-sm font-medium">Your access to this care record has ended.</p>
+        <p className="text-xs text-muted-foreground">
+          Contact your coordinator to receive a new link and regain access.
+        </p>
+      </div>
+    )
+  }
 
   const { data: patient } = await supabase
     .from('patients')
@@ -32,7 +41,16 @@ export default async function PatientViewPage({ params }: Props) {
     .eq('id', patientId)
     .single()
 
-  if (!patient) notFound()
+  if (!patient) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 text-center space-y-2">
+        <p className="text-sm font-medium">This care record could not be found.</p>
+        <p className="text-xs text-muted-foreground">
+          If you think this is a mistake, contact your coordinator.
+        </p>
+      </div>
+    )
+  }
 
   const activeEpisode = await getActiveEpisode(patientId)
 

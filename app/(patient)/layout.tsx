@@ -21,6 +21,10 @@ export default async function PatientLayout({
 
   if (!profile) redirect('/login')
 
+  // Coordinators must never reach the patient shell — redirect them to their own dashboard.
+  // This is independent of the invite flow; the patient route is self-enforcing.
+  if (profile.role === 'coordinator') redirect('/dashboard')
+
   return (
     <div className="min-h-screen flex flex-col">
       <header className="border-b-2 border-patient-base bg-patient-surface px-4 h-14 flex items-center justify-between">

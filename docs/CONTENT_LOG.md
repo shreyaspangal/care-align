@@ -602,6 +602,118 @@ Tagline placement matters as much as tagline quality. B ("From a folder of paper
 
 ---
 
+## Phase 10 — Patient Invite Flow — 2026-06-16
+
+**What did I decide?**
+
+Eight decisions, made in sequence across several design pivots and a security audit. This phase had more reversals than any prior one — each reversal was right for a reason worth recording.
+
+**1. Frictionless access via invite URL → abandoned for PIN-based access.**
+The first implementation sent the patient straight to their care page after clicking the invite link — anonymous Supabase session created server-side on page load, no form, no code. The reasoning: the invite URL is 256-bit token, effectively unguessable, therefore it IS the authentication. This holds technically but fails the healthcare use case: if the URL leaks (WhatsApp message forwarded, screenshot, shared device), the leaked URL grants full access to medical documents. The URL is "something you have" with no second factor. For any communication channel other than face-to-face, that's a single point of failure. Pivot: URL + 6-digit PIN sent via separate channel (URL on WhatsApp, PIN over voice call).
+
+**2. Indian demographic constraints drove the PIN channel decision — not SMS OTP, not email, not a typed code.**
+The alternatives were evaluated seriously:
+- **Email OTP**: ruled out. Email penetration below Tier 2 is near zero in practice — patients in rural India have Gmail accounts created by family members for phone registration, often don't know the password, never open them. Email as a delivery channel is a non-starter for remote village use cases.
+- **SMS OTP**: better penetration (feature phones receive SMS), but: delivery unreliability in rural areas, 5–20 minute delays, spam filter silencing, multi-SIM confusion, literacy requirements. Introduces a third-party infrastructure dependency with known failure modes precisely where failure matters most.
+- **App-generated typed code**: eliminates third-party infrastructure but adds the same form friction as email OTP.
+- **Voice call + PIN**: the coordinator already has the patient's phone number (they're managing their hospitalisation). A voice call is universal — ₹500 feature phones can receive calls. The coordinator reads six digits. The patient types six digits. This is two-factor without any infrastructure dependency beyond the WhatsApp link and a phone call. The mental model is familiar: every Indian who has used mobile banking has entered an OTP.
+
+The name matters: called it "access code" not "OTP" in the UI. "OTP" means "the SMS from my bank" to Indian users — they would wait for an SMS that never comes.
+
+**3. PIN is coordinator-controlled and coordinator-revocable, not a user-set credential.**
+The 6-digit PIN is generated cryptographically server-side (`crypto.getRandomValues` → 1,000,000 combinations), bcrypt-hashed before storage, and shown to the coordinator exactly once in the dialog. The coordinator calls the patient and reads it aloud. The patient never sets it, never sees it in their email, never manages it. If the PIN is lost, the coordinator generates a new link and new code — there is no PIN reset path, because the reset IS generating a new link. This is appropriate: the coordinator owns the access grant. The patient is the recipient, not the account manager.
+
+**4. Rate limiting: 5 wrong attempts locks the token permanently.**
+With 1,000,000 combinations and 5 attempts, brute-force is computationally implausible. The lock is permanent by design — coordinator generates a new link when locked. No "unlock after 30 minutes" mechanic, no email-based reset. Permanent lock prevents any timed brute-force strategy. The coordinator can always generate a fresh link; there is no situation where a legitimate user is permanently locked out unless the coordinator chooses not to help them.
+
+**5. Toggle: coordinator can disable PIN for direct access — with a mandatory risk acknowledgment.**
+One design pattern: always require PIN. Second: always skip it. Third (chosen): default ON with a toggle and a checkbox acknowledgment when OFF. The OFF state requires the coordinator to explicitly confirm "I understand anyone with this link can view care documents." The acknowledgment prevents accidental misconfiguration — the toggle alone (without confirmation) is too easy to click without reading. The UX uses the same `border-brand-border bg-brand-tint` highlight for the active option on both cards — initially missed this on the "direct access" card (the selected state was visually identical to unselected), caught and fixed.
+
+**6. "Generate new invite" expires unused prior invites — but does NOT revoke existing patient_access.**
+Initial implementation collapsed two distinct actions into one: generating a new invite also deleted all `patient_access` rows with `role='patient'`. The intent was: "the old link is now invalid, and so is any access from it." But this is wrong for the most common regeneration reason — the patient lost the PIN code before using it. In that case there is no prior patient_access to revoke; the patient is trying to get in for the first time. Revoking all patient_access on every new invite generation also cuts off a patient who is actively viewing their care documents. The correct model: generating a new invite ONLY expires unredeemed tokens — access already granted is intentionally preserved. Explicit revocation is a separate action with a separate button, confirmation dialog, and a clear description of consequences.
+
+**7. Two actions, not one: `createInvite` and `revokePatientAccess` are separate.**
+`createInvite`: expires all pending (unredeemed) invite tokens for this patient, creates a new token and PIN. Never touches `patient_access`.  
+`revokePatientAccess`: deletes all `patient_access` rows with `role='patient'` for this patient AND expires all pending invites. Used when the coordinator believes the wrong person has access — a deliberate, consequence-communicating action with a confirmation dialog.
+
+This separation maps to two real coordinator intents: "give this person a new link" (common) and "cut off whoever has access right now" (rare, serious). Conflating them into one action was a mistake caught during testing.
+
+**8. Patient page 404 replaced with in-shell friendly message.**
+When a patient visits their care page after access is revoked, `notFound()` was throwing a raw 404 — bypassing the patient layout entirely, showing a default Next.js error with no context. Replaced with an in-component message that renders inside the patient shell (amber header visible): "Your access to this care record has ended. Contact your coordinator to receive a new link and regain access." The same pattern applied to the patient-not-found case. The patient layout stays visible so the user knows they are in the right application.
+
+---
+
+**What resisted me?**
+
+**The RLS vulnerability from enabling anonymous auth — found before any anonymous user touched the system.**
+
+Enabling Supabase anonymous sign-ins surfaced a critical flaw in the existing `patient_access` INSERT policy:
+
+```sql
+WITH CHECK (
+  EXISTS (...coordinator check...) OR user_id = auth.uid()
+)
+```
+
+The `OR user_id = auth.uid()` clause was written for "self-registration" — the initial seed data pattern where the first patient_access row for a new user is inserted by that user. But every actual `patient_access` insert in the codebase uses `createServiceClient()`, which bypasses RLS entirely. The clause was never needed and never used by real code. With anonymous auth disabled, the risk was theoretical — a logged-in coordinator could abuse it. With anonymous auth enabled, any anonymous user could call:
+
+```ts
+supabase.from('patient_access').insert({
+  user_id: theirAnonymousUserId,
+  patient_id: anyPatientIdTheyKnow,
+  role: 'patient'
+})
+```
+
+And it would succeed. Patient UUIDs appear in `/patient/[patientId]` URLs — they are not secret. An anonymous user who had ever seen a patient URL could self-grant access to that patient's medical records.
+
+Migration `20260616000001_fix_patient_access_rls.sql` removed the `OR user_id = auth.uid()` clause before any anonymous user was created. The fix is one DROP + one CREATE — no data change, no functional change for any real use path.
+
+**The `patient_invites` RLS UPDATE trap — silent failure, wrong fix, right diagnosis.**
+
+The first attempt at expiring old invites in `createInvite` used the regular Supabase client:
+```ts
+await supabase.from('patient_invites').update({ expires_at: now })...
+```
+
+`patient_invites` has RLS enabled with INSERT and SELECT policies but no UPDATE policy. RLS default-deny means the UPDATE from an authenticated user silently affects 0 rows — Supabase returns a success response with no error. The old invites remained valid. The coordinator generated a new link; the old link still worked. Fix: switch the expiry UPDATE to `createServiceClient()` — service role bypasses RLS. Lesson: every UPDATE/DELETE on an RLS-enabled table must explicitly check which client is performing it. A silent 0-row-affected result is the only signal of a policy mismatch, and it looks identical to a successful update on an already-filtered result set.
+
+**Patient documents showing 0 despite existing — missing RLS SELECT policy.**
+
+The patient view page calls `getEpisodeDocuments()` which queries the `documents` table via the regular RLS-enforced client. The initial schema set `documents` as coordinator-only:
+
+```sql
+-- documents — coordinator only (patient does not see raw documents)
+```
+
+With RLS, the patient's query returned 0 rows — triggering the empty state "No documents have been processed yet. Your coordinator is working on it." regardless of how many translated documents existed. Migration `20260616000003_patient_document_read_access.sql` added a patient SELECT policy on `documents`. The original intent (patients don't see raw documents) was preserved at the application layer — the patient view renders `document_translations`, not raw documents — but the query infrastructure needed the SELECT permission to execute at all.
+
+**The `Promise.all` non-issue that wasn't.**
+
+One implementation of `createInvite` used `Promise.all` to run two DB operations in parallel — expiring invites and deleting patient_access. This was flagged as "no purpose" by the product owner. The `Promise.all` WAS correct (two independent operations, parallel is the right pattern), but the OPERATIONS themselves were wrong (deleting patient_access belonged in `revokePatientAccess`, not `createInvite`). The code smell was the wrong operation, not the concurrency pattern. Recording this distinction: `Promise.all` of two genuinely independent operations is correct and should not be simplified to sequential awaits for readability alone.
+
+**Coordinator visiting old join URL — expected "expired", got redirected to dashboard.**
+
+When a coordinator visits any join URL (expired, used, or valid), the join page RSC detects `profile.role === 'coordinator'` and immediately calls `redirect('/dashboard/[patientId]')`. This fires before any expiry check. The coordinator expected to see "this link has expired" — instead they were silently redirected to their own coordinator view of the patient. Technically correct behaviour (a coordinator should see their dashboard, not an invite redemption page), but confusing when testing expiry. No code change made — the redirect is right. This is a documentation and expectation issue, not a bug.
+
+**join URL reload — 404 instead of redirect.**
+
+After redeeming an invite and being redirected to `/patient/[patientId]`, a patient who navigated back to the join URL got "This invite link has already been used" instead of being redirected to their care page. Root cause: the `used_at` check was a universal guard that ran before the `existingAccess` check. Reordering fix: check `existingAccess` before `used_at` for logged-in users. A patient with valid `patient_access` is always redirected, regardless of whether the invite is used or expired. The `used_at` check then correctly serves only the case where a logged-in user has no access and tries to use a token someone else already redeemed.
+
+---
+
+**What did I understand today that I didn't yesterday?**
+
+**The Indian demographic stack determines the auth stack.** Email → SMS → voice call is not a stack you choose based on preference or developer convenience. It is a stack determined by who your users are and where they are. Email fails in rural India not because email is bad but because it assumes digital infrastructure that simply isn't present. The "right" auth mechanism for a healthcare app serving Tier 2–4 cities and villages is one that degrades to a phone call. Everything else is designed for a different user.
+
+**Anonymous auth and RLS interact at the role level, not the user level.** Anonymous users get the Supabase `authenticated` role — the same role every signed-in user gets. RLS policies that apply to `authenticated` without checking `patient_access` or specific user metadata are exposed to every anonymous user. The warning Supabase surfaces when enabling anonymous sign-ins ("anonymous users will use the authenticated role when signing in") is not a caveat — it is a demand to audit every policy that uses `TO authenticated` without an additional guard. The `OR user_id = auth.uid()` clause was in an INSERT policy with a long comment explaining its purpose, written before anonymous auth existed as a concern. It was invisible as a vulnerability until the auth mode changed.
+
+**The generate-vs-revoke distinction is a product decision, not a technical one.** Every version of "invalidate the old access when generating a new link" was technically implementable. The question was what a coordinator actually intends when they click "generate new invite." In most cases: the patient hasn't used the link yet and needs a fresh one (no patient_access to revoke). In rare cases: someone got in who shouldn't have (explicit revocation needed). These are different intents, different frequencies, and different consequences. Collapsing them into one action forces every coordinator to assume the aggressive behaviour (revoke) even when they only want the gentle one (refresh). Separating them forces the coordinator to make a deliberate choice when taking the destructive action.
+
+**Supabase service client usage is a load-bearing architectural decision, not a convenience.** Every time `createServiceClient()` appears in the codebase, it is bypassing RLS. That bypass exists for exactly one reason: the operation is impossible through RLS because the access conditions that would permit it don't exist yet (chicken-and-egg) or shouldn't exist (service-level operations that users should never perform directly). The corollary: every UPDATE or DELETE that a coordinator should legitimately perform needs an RLS policy. Using service client because "I forgot to write the policy" is hiding a hole in the access model. Using service client because "the policy would be wrong" (like deleting all patient_access rows on invite generation — a policy that would let any coordinator delete any patient's access) is using it correctly.
+
+---
+
 ## Content Pipeline
 
 When ready to post, paste raw notes from any phase above into a Claude conversation with:
