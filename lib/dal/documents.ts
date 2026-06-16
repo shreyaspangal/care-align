@@ -23,6 +23,7 @@ export type EpisodeDocument = {
   type: DocumentType
   purpose: string | null
   document_date: string | null
+  created_at: string
   status: DocumentStatus
   translation: DocumentTranslation | null
 }
@@ -37,7 +38,7 @@ export const getEpisodeDocuments = cache(async (episodeId: string): Promise<Epis
   const { data } = await supabase
     .from('documents')
     .select(`
-      id, name, type, purpose, document_date, status,
+      id, name, type, purpose, document_date, created_at, status,
       document_translations (
         plain_language, what_it_means,
         document_actions ( id, description, category, action_for, phase_appears )
@@ -61,6 +62,7 @@ export const getEpisodeDocuments = cache(async (episodeId: string): Promise<Epis
       type: doc.type,
       purpose: doc.purpose,
       document_date: doc.document_date,
+      created_at: doc.created_at,
       status: doc.status,
       translation: t
         ? {

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { getCoordinatorPatients } from '@/lib/dal/patients'
 import { CreatePatientForm } from '@/components/features/CreatePatientForm'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,28 +13,9 @@ export default async function DashboardIndexPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: accessRows } = await supabase
-    .from('patient_access')
-    .select(`
-      patient_id,
-      patients (
-        id,
-        name,
-        admission_status,
-        date_of_birth
-      )
-    `)
-    .eq('user_id', user.id)
-    .eq('role', 'coordinator')
-    .order('created_at', { ascending: false })
+  // Cached — deduplicates with the layout's call for the same userId
+  const patients = await getCoordinatorPatients(user.id)
 
-  type PatientRow = { id: string; name: string; admission_status: string; date_of_birth: string }
-
-  const patients = (accessRows ?? [])
-    .flatMap(r => (Array.isArray(r.patients) ? r.patients : r.patients ? [r.patients] : []))
-    .filter((p): p is PatientRow => !!p)
-
-  // No patients yet — show the add-patient form
   if (patients.length === 0) {
     return (
       <div className="min-h-[calc(100vh-3.5rem)] flex items-center justify-center px-4">
@@ -50,7 +32,6 @@ export default async function DashboardIndexPage() {
     )
   }
 
-  // One or more patients — show the list
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
       <div className="flex items-center justify-between">
@@ -60,7 +41,7 @@ export default async function DashboardIndexPage() {
             {patients.length} {patients.length === 1 ? 'patient' : 'patients'} under your care
           </p>
         </div>
-        <Button asChild size="sm" variant="outline">
+        <Button asChild size="sm" variant="outline" className="lg:hidden">
           <Link href="/dashboard/new">
             <UserPlus className="w-4 h-4 mr-1.5" />
             Add patient
@@ -79,9 +60,7 @@ export default async function DashboardIndexPage() {
               <p className="text-sm font-medium">{patient.name}</p>
               <p className="text-xs text-muted-foreground">
                 DOB {new Date(patient.date_of_birth).toLocaleDateString('en-IN', {
-                  day: 'numeric',
-                  month: 'short',
-                  year: 'numeric',
+                  day: 'numeric', month: 'short', year: 'numeric',
                 })}
               </p>
             </div>

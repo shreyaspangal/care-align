@@ -14,6 +14,31 @@ At the end of every build session, answer these three:
 
 ---
 
+## Coordinator Shell + Upload UX — 2026-06-16
+
+**What did I decide?**
+
+Two batches of work shipped together as one commit.
+
+**Batch 1 — Coordinator sidebar + view restructure:**
+Replaced the full-width header-only coordinator shell with a persistent 240px sidebar on desktop. The sidebar holds the patient list (active patient highlighted in brand teal, admission status as a colour dot), "Add patient" link with active state on `/dashboard/new`, and the user identity + sign out at the bottom. Mobile keeps the existing teal header. PatientTabNav converted from a fixed bottom strip to an inline top strip with three tabs: Documents (default) | Summary | Tasks. The Summary tab is a new route (`/dashboard/[patientId]/summary`) that owns `EpisodeSummaryPanel` — previously it was above the upload zone on the Documents tab. The `[patientId]/layout.tsx` now owns the patient header (name + status) so it isn't repeated across three pages. Tabs have no background — they sit against the page background, scoped to content width. Back link and "Add patient" button are `lg:hidden` since the sidebar replaces them on desktop.
+
+**Batch 2 — Six upload zone + card fixes:**
+1. Sidebar "Add patient" active highlight when on `/dashboard/new`.
+2. Mobile-only visibility for "← All patients" and "Add patient" button.
+3. Patient header + tabs moved into layout — pages render content only.
+4. Document type selector: replaced native `<select>` with Shadcn Combobox (Popover + Command). "Other (custom)" is part of the main list. "Clear selection" is anchored at the bottom, always visible, disabled when nothing selected. Custom type shows inline input inside the popover — no second field below.
+5. Hospital field: Google Maps Places API (New) integration using `AutocompleteSuggestion.fetchAutocompleteSuggestions`. Loaded via Next.js Script in coordinator layout with `loading=async`. Falls back to plain input if key not set. Requires "Maps JavaScript API" + "Places API (New)" enabled in Google Cloud Console.
+6. Uploaded document card restructured: `[title] [type-tag][delete]` / `[description]` / `[Issued at: date · Uploaded on: time] [Translated/Failed]`. Delete opens a confirmation Dialog before executing. `created_at` added to `EpisodeDocument` type and DAL query. Uploaded documents section moved outside the upload card — plain heading with sort dropdown (Newest/Oldest/By type), documents below without a card wrapper. `DocumentsSection` client component handles sort state.
+
+**What resisted me?**
+Google Places API migration was the friction point. `use-places-autocomplete` (the popular library) uses `AutocompleteService` which Google deprecated for new customers in March 2025. Installed it, got warnings, checked the actual API docs, removed it, and reimplemented directly against `AutocompleteSuggestion.fetchAutocompleteSuggestions` — the correct new API. The 403 after that was purely a Cloud Console permissions issue (Places API not enabled), not a code issue. The implementation was correct on the first try once the library was removed.
+
+**What did I understand?**
+Popular npm packages lag behind API deprecations by months or years. `use-places-autocomplete` v4.0.1 (published recently) still wraps a deprecated API. Reading the official migration docs first and implementing directly against the new interface saved a third dependency and produced cleaner code. The check was worth the 10 minutes.
+
+---
+
 ## Pre-Build — Spec and Architecture
 
 **Date:** Before first commit
@@ -491,6 +516,89 @@ Nothing technically difficult. The friction was recognising that the empty state
 
 **What did I understand?**
 Next.js `loading.tsx` files work via React Suspense at the segment level. The layout renders immediately; the loading skeleton shows while the page component awaits its data fetches. This means the header and navigation are interactive from the first paint — only the page body is deferred. The user sees structure instantly. The skeleton matches the shape of the content that will replace it, so the layout does not shift when the data arrives. The skeleton is not a progress indicator — it is a shape promise.
+
+---
+
+## Design System, Logo, and UX Direction — Session 2026-06-15
+
+**What did I decide?**
+
+Six decisions made in sequence, each building on the previous.
+
+**1. Brand color — deep teal as primary.**
+The app had zero chroma: every CSS token was `oklch(X 0 0)`. Chose brand teal `oklch(0.44 0.11 183)` — warmer and slightly greener than hospital teal, not clinical, not cold. Set `--primary: var(--brand-base)` so all existing Shadcn buttons, focus rings, and input borders inherited the brand color automatically with zero component changes. Warm cream `oklch(0.99 0.006 90)` background instead of pure white. Radius bumped to 0.75rem (warmer, more approachable). Added Plus Jakarta Sans (headings) alongside Geist (body). Two-font system: display warmth + UI legibility.
+
+**2. Token naming convention — `base/on/tint/border/surface` suffix system.**
+Initial names (`--brand`, `--brand-subtle`, `--brand-muted`) were fine for V1 but not theme-scalable. Renamed to suffix convention: `--brand-base` (solid fill), `--brand-on` (text on brand), `--brand-tint` (light wash bg), `--brand-border` (borders), `--patient-surface` (page-level bg). Any future role (doctor, admin) adds `--doctor-base/on/tint/border/surface`. Any future theme redefines `--brand-*` under `[data-theme="x"]` with no component changes. Enforcement via `carealig/no-raw-color-values` ESLint rule — blocks all `oklch()`/`#hex`/`rgb()` in className or style props. Exception: `eslint-disable-next-line` with written justification.
+
+**3. Logo — Mark A (arc + arrow direction C variant).**
+Three flat mark directions and one 3D clay app icon family were explored. Chose Mark A: open arc (three-quarters circle) with a directional arrow at the open end. Simultaneously reads as the letter C (Care) and a direction marker (Align). The arrow points outward/upward — care moving toward resolution. Wordmark: "Care" in brand teal, "Align" in near-black, Plus Jakarta Sans 700, `letter-spacing: -0.025em`. Scales cleanly from 96px (app icon) to 16px (favicon) via strokeWidth adjustment.
+
+The 3D clay variants (Clay.com-inspired) were also designed — squircle containers with matte radial gradient, specular highlight, colored drop shadow — and saved for use as the landing page hero asset and potential app store icon.
+
+**4. Role-differentiated headers — same layout, different emotional temperature.**
+Coordinator shell: white background, teal 2px bottom border, "COORDINATOR" chip in brand-tint. Patient shell: warm amber surface `--patient-surface`, amber 2px border, "YOUR CARE" chip in patient-tint. Identical structural markup, completely different emotional register — coordinator feels like a tool, patient feels like receiving care. Solves the "which role am I in?" disorientation without any navigation action.
+
+**5. Strategic UX direction — five structural changes.**
+
+After reviewing Apollo 247 (5-tab bottom nav, two separate apps for patient/doctor), Practo (5-tab bottom nav, Practo Pro separate app for providers), and MediBuddy (no bottom nav flagged as a UX flaw, corporate vs employee vs doctor separate entry points), decided:
+
+- **Landing page at `/`** — not a redirect to login. A proper orientation page.
+- **Coordinator is the only self-serve signup** — no role selector. The default experience IS the coordinator experience.
+- **Patients access via invite link/code** — coordinator generates a shareable link (6-char alphanumeric token, `carealig.vercel.app/join/a3x9kp`), shares via WhatsApp. Patient taps link → authenticated instantly → no password, no credential burden. Backend: `patient_invites` table, `/join/[token]` route, single-use token expires in 7 days.
+- **Sidebar navigation for coordinator on tablet+** — not bottom nav. The app has 2 primary destinations (patient list, patient detail), not 5+. Bottom nav is for apps with many peer destinations. A sidebar fits a tool-shaped app.
+- **Patient view stays sidebar-free** — read-only consumption, not a tool. Should feel like receiving a care update, not using software.
+- **Coordinator patient detail restructured** — Documents tab first (the action that drives everything), Summary tab second (AI output, secondary), Tasks tab third. Current layout buries the upload zone below a large summary panel.
+
+**6. All three reference platforms share one key pattern: separate shells per role, not in-app role switching.**
+Apollo has two separate apps (`Apollo 247` and `Apollo Doctor 247`). Practo has `Practo` and `Practo Pro`. MediBuddy has employee app, HR portal, and doctor portal. CareAlign's existing architecture (`/dashboard` for coordinator, `/patient/[id]` for patient) was already right. The missing piece was making that separation visually legible — which the header differentiation now does.
+
+**What resisted?**
+
+The ESLint rule definition landed outside the `rules` object on the first write — a structural error. One-line fix, caught immediately by `pnpm lint:arch`. Token renaming required updating 5 files (globals.css, logo.tsx, coordinator layout, patient layout, @theme inline block) — no functional change, but necessary for the naming to be composable long-term.
+
+**What did I understand?**
+
+`--primary: var(--brand-base)` is the highest-leverage design system change possible. One CSS line cascades through every Shadcn component without touching a single component file. The Shadcn token system is designed for exactly this. The lesson: design system work that touches the token layer compounds across the entire UI; work that touches individual components is additive at best.
+
+The research finding that surprised: none of Apollo 247, Practo, or MediBuddy do in-app role switching. The industry pattern is not a role-switching button — it is separate shells. CareAlign had the right architecture. The problem was that the shells looked identical. The fix was visual differentiation, not an architectural change.
+
+Patient invite link over typed code: a typed code requires the patient to switch apps, read alphanumerics, type under stress on a hospital ward. A WhatsApp link requires one tap. The code is a fallback for the case where the link doesn't render (older SMS clients, printed handouts). Design the primary path for one tap; design the fallback for one line of text.
+
+---
+
+## Landing Page IA — Decisions 2026-06-15
+
+**What did I decide?**
+
+**1. Landing page is an orientation page, not a marketing page.**
+Primary audience is warm referrals — coordinators who were told about CareAlign and arrive to sign in or register. The job: confirm they're in the right place in 5 seconds, show the product in 30 seconds, build enough trust to hand over medical documents. Not a discovery page for strangers. Consequence: shorter than a typical SaaS page — 6 sections, no pricing, no feature grid.
+
+**2. Scope framing corrected — not just document translation.**
+CareAlign manages and organises patient health records across multiple episodes and multiple hospitals into one connected picture. Episode Timeline, Living Summary, and Pending Tasks are first-class features, not footnotes. The IA was underselling this in V1. Section 4 now surfaces all five capabilities as equal pillars.
+
+**3. Three taglines, three placements — no overlap.**
+- **Hero H1:** "From a folder of papers to a connected picture of your care." — Visual, relatable, uses the exact language from the origin story. Every Indian family recognises "the folder."
+- **How it works heading:** "Organize it. Translate it. Understand it." — Three parallel verbs, each maps directly to a step (Upload → AI reads → Patient understands). The heading does the work so step descriptions stay one sentence each.
+- **Closing CTA:** "Because the patient deserves to understand what is happening to them." — Moral weight without preachiness. The word "deserves" lands hardest at the emotional peak of the page, not the top.
+
+**4. Section 5 "What CareAlign is not" — one line updated.**
+"Not a storage app" → "Not just a storage app. It is the comprehension layer with organized storage to connect the dots and make sense of health records." Acknowledges storage as part of the product while clearly positioning comprehension as the differentiator.
+
+**5. 3D clay icons carry the narrative, copy stays minimal.**
+Every section has a primary clay-style 3D icon as the visual explainer. No stock photos, no human faces. The icons use the same material treatment as the logo (matte radial gradient, specular highlight, colored shadow). Coordinator context: teal. Patient context: amber. Mixed: split teal-amber.
+
+**6. Inner pages refactored before product screenshots are taken.**
+Landing page is last in the build queue, not first. Screenshots of unpolished inner pages on a marketing page actively damage trust. Build order: auth pages → coordinator sidebar + view restructure → patient view → invite flow → landing page.
+
+**7. Interaction animation principles for this page.**
+Hero: stagger-in on load (opacity 0→1, y 12→0, ease-out-quart, 80ms between elements). Section reveals: scroll-triggered fade+slide. "The Moment" section: text lines stagger one by one. Problem cards: 100ms stagger. Document morphing animation in "How it works" step 2: dense card → translation card, ease-in-out-cubic, 500ms, plays once on viewport entry. Background gradient: very slow hue shift (±8 degrees, 12s, linear, infinite), disabled under prefers-reduced-motion.
+
+**What resisted?**
+The initial IA underweighted the multi-episode, multi-hospital scope — treating CareAlign as a document translator rather than a health record comprehension layer. The messaging reference document corrected this in one read. The discipline is: use the product's own copy as the IA source of truth, not generic SaaS section templates.
+
+**What did I understand?**
+Tagline placement matters as much as tagline quality. B ("From a folder of papers...") earns its place at the top because it names the before-state every coordinator already lives in — recognition is the fastest trust signal. A ("Organize it. Translate it. Understand it.") earns its place in "How it works" because verbs are more instructive than noun-based headings. E ("Because the patient deserves...") earns the closing position because it shifts from product to principle — the last thing a reader carries away should be the reason the product exists, not what it does.
 
 ---
 

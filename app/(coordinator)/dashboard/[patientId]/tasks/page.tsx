@@ -25,25 +25,11 @@ export default async function TasksPage({ params }: Props) {
 
   if (!access || access.role !== 'coordinator') notFound()
 
-  const { data: patient } = await supabase
-    .from('patients')
-    .select('id, name')
-    .eq('id', patientId)
-    .single()
-
-  if (!patient) notFound()
-
   const activeEpisode = await getActiveEpisode(patientId)
-
   const tasks = activeEpisode ? await getEpisodeTasks(activeEpisode.id) : []
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">Pending Tasks</h1>
-        <p className="text-sm text-muted-foreground">{patient.name}</p>
-      </div>
-
+    <div className="max-w-3xl mx-auto px-4 py-6">
       <TasksClient
         tasks={tasks}
         defaultShowPostDischarge={

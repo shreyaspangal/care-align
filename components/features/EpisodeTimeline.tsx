@@ -66,6 +66,7 @@ export function EpisodeTimeline({ documents, viewerRole, onDelete }: EpisodeTime
               type: doc.type,
               purpose: doc.purpose,
               document_date: doc.document_date,
+              uploaded_at: doc.created_at,
               translation_status: toTranslationStatus(doc.status),
             }}
             onClick={() => setSelectedId(doc.id)}

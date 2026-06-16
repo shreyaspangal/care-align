@@ -116,25 +116,31 @@ type DocumentCardProps = {
     id: string
     name: string
     type: DocumentType
-    purpose: string | null   // null while status = pending_classification
-    document_date: string | null  // null when Claude cannot extract a date
+    purpose: string | null    // null while status = pending_classification
+    document_date: string | null   // null when Claude cannot extract a date
+    uploaded_at?: string      // created_at from DB — shows upload timestamp
     translation_status: TranslationStatus
   }
   onClick?: () => void
+  onRetry?: () => void
+  onDelete?: () => void  // shows confirmation Dialog before executing
 }
 
 // Null handling rules:
-// document_date null  → render "Date unknown" in muted gray text (never hide the slot)
+// document_date null  → render "Issued at: Unknown" (never hide the slot)
 // purpose null        → render "Processing..." in muted gray text
 // Do not default document_date to upload date — it would be factually wrong.
 
-// Layout
-┌─────────────────────────────────────────┐
-│ [DocumentTypeTag]          [date | "Date unknown"]  │
-│ Document name                            │
-│ Purpose label | "Processing..."          │
-│                   [TranslationStatus]    │
-└─────────────────────────────────────────┘
+// Layout (3-row flat card, no header/footer split)
+┌──────────────────────────────────────────────────────────┐
+│ Document name (flex-1)         [DocumentTypeTag] [delete] │
+│ Purpose | "Processing..."                                 │
+│ Issued at: date · Uploaded on: time    [TranslationStatus]│
+└──────────────────────────────────────────────────────────┘
+
+// Delete: clicking trash triggers a confirmation Dialog ("Delete this document?
+// This will permanently remove the document and its translation.")
+// before calling onDelete. DocumentCard is 'use client' for useState.
 ```
 
 ---
@@ -191,6 +197,41 @@ type EpisodeStatusCardProps = {
 
 Full product sections assembled from composites and primitives.
 
+### CoordinatorSidebarNav
+Persistent 240px sidebar nav for the coordinator shell (desktop only, `lg:flex`).
+
+```tsx
+type CoordinatorSidebarNavProps = {
+  patients: PatientListItem[]  // from getCoordinatorPatients DAL, cached per request
+}
+
+// Behaviour (client component — uses usePathname)
+- Extracts active patientId from pathname via regex /\/dashboard\/([^/]+)/
+- Each patient row: green dot (admitted) or gray dot (outpatient) + name, teal highlight when active
+- "Add patient" link at bottom, teal highlight when pathname === '/dashboard/new'
+- Sidebar footer (in layout, not this component): user avatar initial + name + sign out form
+```
+
+---
+
+### DocumentsSection
+Uploaded documents list with sort controls. Rendered outside the upload card.
+
+```tsx
+type DocumentsSectionProps = {
+  documents: EpisodeDocument[]
+  onDelete?: (documentId: string) => Promise<{ ok: boolean; error?: string }>
+}
+
+// Behaviour (client component — owns sort state)
+- Heading "Uploaded documents (N)" + sort <select> aligned right
+- Sort options: Newest first (default, by created_at DESC) | Oldest first | By type
+- Renders EpisodeTimeline for the sorted list
+- Returns null when documents.length === 0
+```
+
+---
+
 ### EpisodeTimeline
 The main coordinator view — chronological list of all documents.
 
@@ -219,9 +260,14 @@ Upload area for new documents with optional pre-classification hints.
 ```tsx
 // Behaviour
 - Two optional hint fields above the drop zone:
-    1. Document type — dropdown of 6 enum values + "Other (custom)"
-       Custom maps to type='other', custom label stored in purpose
-    2. Hospital name — free text input
+    1. Document type — Shadcn Combobox (Popover + Command). "Other (custom)" is part
+       of the main list. "Clear selection" anchored at the bottom, always visible.
+       Selecting "Other" reveals an inline text input inside the popover — no second field.
+       Custom maps to type='other', custom_type stored separately.
+    2. Hospital name — Google Maps Places (New) autocomplete via AutocompleteSuggestion
+       API. Requires NEXT_PUBLIC_GOOGLE_MAPS_API_KEY + "Places API (New)" enabled in
+       Google Cloud Console. Falls back to plain text input when key not set.
+       Script loaded once in CoordinatorLayout with loading=async.
     Both are advisory — Claude confirms or corrects after classification.
     Hints are seeded into the documents row immediately on upload
     so the UI shows something while AI runs.
