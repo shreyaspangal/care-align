@@ -714,6 +714,358 @@ After redeeming an invite and being redirected to `/patient/[patientId]`, a pati
 
 ---
 
+## Phase 11 — Coordinator Sidebar Overhaul + Patient View Restructure — 2026-06-16
+
+**What did I decide?**
+
+**1. Sidebar stickiness via `sticky top-0 h-screen` — not a layout restructure.**
+The sidebar was stretching with the right content column because CSS grid children match the tallest sibling's height. The fix wasn't to change the grid — it was to make the aside `sticky` so it pins to the viewport regardless of what the right column does. `overflow-hidden` on the aside + `overflow-y-auto` on the nav section contains the scroll to just the patient list.
+
+**2. Logo as home link — no separate "Home" button.**
+The sidebar needed a way back to `/dashboard` (the patient list). Two options: a dedicated row or the logo. Chose both — logo as a silent home link for those who discover it, plus an explicit "All patients" row in the nav for those who need it labelled. Neither alone is sufficient: the logo-as-home pattern is a convention, not a universal — a coordinator who hasn't used other tools with this pattern wouldn't know. The explicit row removes the ambiguity.
+
+**3. Profile combobox — Claude's pattern applied verbatim.**
+Replaced the flat name + sign-out text link with a full `UserProfileMenu` popover: avatar + name + email trigger, opens above with workspace section, language preferences, sign out. The workspace section shows "My Workspace" for now — it becomes meaningful in V2 when multi-coordinator accounts exist. The language section lists 6 Indian languages with English active and the rest disabled with "Soon" labels. The disabled state communicates intent without implying the feature works. The trigger's chevron flips on open, which signals the popover is dismissible.
+
+**4. Patient list intelligence: pin + search + archive — three separate controls for three different scales.**
+The coordinator asked "who needs attention today?" which is a sorting problem, not a filtering problem. Pinned patients address the micro-scale (1–5 high-priority patients), the default sort (most recently created access row as proxy for recent activity) addresses the mid-scale, and archived patients (admission_status = 'closed') hidden by default addresses long-term list hygiene. Search addresses the large-scale case when the coordinator cannot find someone by scrolling. Three controls for three separate problems — not one combined filter UI.
+
+The pin persists to the database via `patient_access.pinned_at` (new column, migration applied). The sort is done at query time (`ORDER BY pinned_at DESC NULLS LAST, created_at DESC`). The archive toggle is client-side — no backend involvement.
+
+**5. Patient view: hospital name from documents, not a dedicated field.**
+The patient layout needs to show the hospital context at the top. Two options: add a `hospital_name` column to `episodes`, or derive it from the first document with a `source_hospital` value. Chose derivation — the schema already has `source_hospital` on documents from AI classification. Adding a column would require a migration and a manual field for cases where documents haven't been uploaded yet. The derivation degrades gracefully: if no documents have been classified yet, the header shows "Your care" rather than a blank. When the first document is classified with a hospital, the header updates automatically.
+
+**6. Patient tabs: Summary first, Documents second — opposite of coordinator.**
+For a coordinator, documents are the primary action surface — they upload, review, and manage. Documents first makes sense. For a patient, understanding comes first — they open the app to find out what's happening and what they need to do. Summary first puts the answer before the reference material. The tabs are the same two concepts in both views, but the priority order differs because the intent differs.
+
+**7. Summary tab owns "What you need to do" — no third tab.**
+Patient-facing action items (`action_for = 'patient'` in `document_actions`) aggregate into the Summary tab rather than a separate "For you" tab. The mental model is: "what's happening + what I should do" is one conversation. A third tab would require the patient to know to look there. Keeping it in Summary means the patient reads the situation and sees their actions in the same scroll. The empty state ("Nothing yet — your coordinator is reviewing your documents") is calm and reassuring rather than implying something is missing.
+
+**8. Patient shell: brand teal over amber — visual consistency beats role differentiation.**
+The original design used amber for the patient shell (header border, chip, tab active colors) to signal "this is a different context." The coordinator view used brand teal. The user flagged this as inconsistent. Decision: both views use the same brand teal. Role differentiation is communicated by the shell structure (sidebar vs. top header, tool feel vs. care feel) — colour doesn't need to carry it too. A patient who sees amber has no mental model for what amber means; they just see a colour that differs from the logo.
+
+---
+
+**What resisted me?**
+
+**`CoordinatorSidebarNav` hit three lint rules simultaneously.**
+The first write of the sidebar component used raw `<input>` for search and raw `<button>` for archive toggle and pin — three `carealig/no-raw-html-primitives` violations. The floating promise violation (`togglePinPatient` called inside `startTransition` without await) was a fourth. All caught in the same lint run. The fix was replacing with `<Input>` and `<Button>` from `@/components/ui/` and wrapping the action call as `async () => { await togglePinPatient(...) }` inside `startTransition`. The important pattern: `startTransition` in React 18+ accepts async callbacks — no `void` operator needed, no separate handler required.
+
+**The `EpisodeDocument` type didn't include `source_hospital`.**
+Adding `source_hospital` to the patient layout's hospital-derivation logic required updating the DAL type, the SELECT query, and the mapping function. Three places for one field — and the type change immediately surfaced five story fixtures that were missing the field. The type system did its job: the stories failed to compile, each was fixed with `source_hospital: null`, and the change propagated cleanly. The lesson is not "adding a field is expensive" — it's "the type system making field additions loud is exactly right for a medical app where silent missing data causes problems."
+
+**The Playwright browser ran in dark mode — coordinator screenshots were light, patient screenshots went dark.**
+After swapping the patient header from `bg-patient-surface` (explicit warm cream) to `bg-card` (theme-inheriting), the patient view screenshots in Playwright rendered dark. The coordinator view (also using `bg-card`) had rendered light. The difference: the coordinator screenshots were taken at desktop viewport size before the browser acquired dark mode preference; the patient screenshots were taken in a subsequent Playwright session where system dark mode had been applied. The code is correct — the production browser will render light for light-mode users. The Playwright session was misleading. Diagnosis confirmed by checking that `bg-card` maps to the same token in both shells.
+
+---
+
+**What did I understand today that I didn't yesterday?**
+
+**The sidebar "who needs attention today" question is unanswerable without data.**
+Pinning, sort by recent activity, and search are three proxies for "attention needed" — but none of them actually know which patient needs attention. Real "attention needed" would require: unresolved task count, days since last document uploaded, episode status, or a coordinator-set priority flag. V1 uses `created_at` on `patient_access` as a proxy for activity, which is wrong for long-running coordinators (the newest patient surfaces, not the most active one). The right V2 signal is "last document uploaded" or "oldest unresolved task." The architecture supports this — the sort is in the DAL, not the component — but V1 uses a cheap proxy deliberately rather than adding a join.
+
+**Two separate role-differentiation signals are one too many.**
+The original design used both structural signals (sidebar vs. header layout) AND colour signals (teal vs. amber) to differentiate coordinator from patient. Removing the colour signal didn't break the differentiation — the structural difference is strong enough on its own. This is consistent with a principle in interface design: every signal has a cost (cognitive load of "what does this mean?"), so signals that don't add unique information should be removed. Amber in the patient view added no information the patient didn't already have from the "YOUR CARE" chip and the absence of a sidebar.
+
+---
+
+## Recurring Security Pattern — RLS UPDATE/DELETE Silent Failure — 2026-06-16
+
+**This pattern has now appeared three times in this codebase. It is documented here as a permanent reference because each occurrence looked like a different bug but was the same root cause.**
+
+---
+
+### The pattern
+
+A Supabase Server Action calls `.update()` or `.delete()` on a table that has Row Level Security enabled. The call returns `{ error: null, data: null, count: 0 }` — no error, no data, zero rows affected. The application treats this as success. Nothing was written to the database. The UI may show optimistic state that never persists.
+
+### Why it happens
+
+Supabase enforces access control at **two independent layers**:
+
+**Layer 1 — PostgreSQL GRANT:** Controls whether the database role can execute the statement type at all. `GRANT UPDATE ON table TO authenticated` enables UPDATE for the `authenticated` role. Without this, the query fails with a permission error.
+
+**Layer 2 — Row Level Security (RLS):** Controls which rows the statement can touch. With RLS enabled and **no UPDATE policy defined**, the default is deny-all. Every row is invisible to the UPDATE. The query executes, touches zero rows, and returns success.
+
+Both layers must pass. The GRANT passing does not tell you anything about whether the RLS layer will pass.
+
+### Why it's hard to detect
+
+- No error is returned. The Supabase JS client returns `{ error: null }` when 0 rows match the RLS filter.
+- The count is not checked. Most action code checks `if (error)` and treats zero-count as a no-op, not a failure.
+- Optimistic UI hides it completely. If the client immediately shows the updated state (pin toggled, expiry set), the user never sees that the server write was a no-op.
+- The bug only manifests when you reload or navigate away — the state reverts because the server write never happened.
+
+### The three occurrences
+
+**Occurrence 1 — `patient_invites.expires_at` (Phase 10 — invite flow)**
+Action: `createInvite` was expiring old unredeemed invites before generating a new one using `createClient()` with `.update({ expires_at: now })`.
+Symptom: Coordinator generated a new invite link; visiting the old link still worked.
+Detection: Browser testing — coordinator expected the old link to be invalid, it wasn't.
+Fix: Switched to `createServiceClient()` for the expiry UPDATE.
+
+**Occurrence 2 — `patient_invites.pin_attempts` and `pin_locked_at` (Phase 10 — PIN verification)**
+Action: `verifyPinAndJoin` was incrementing attempt counter and locking via service client.
+Status: Correctly used service client from the start — caught before shipping because the pattern was now known.
+
+**Occurrence 3 — `patient_access.pinned_at` (Phase 11 — sidebar pin)**
+Action: `togglePinPatient` was updating `pinned_at` using `createClient()` with `GRANT UPDATE (pinned_at) TO authenticated` added in the migration.
+Symptom: Pin appeared to work (optimistic UI toggled immediately) but the pin never persisted across page reloads or navigation.
+Detection: Security and architecture audit before commit caught this by inspecting the migration file for UPDATE RLS policies on `patient_access` — none existed.
+Fix: Added an explicit coordinator access check via `createClient()` first (read, RLS-enforced), then used `createServiceClient()` scoped to the specific `access.id` row for the UPDATE. This is more precise than the previous fixes — instead of filtering by multiple columns with service client, the coordinator access is verified at the application layer first, then the service client targets a single primary key.
+
+### The correct pattern going forward
+
+```ts
+// ✅ Correct — verify access first, then use service client for UPDATE/DELETE
+const { data: access } = await supabase
+  .from('table_with_rls')
+  .select('id')
+  .eq('user_id', user.id)
+  .single()                    // RLS enforces: if no row, access = null
+
+if (!access) return { ok: false, error: 'Not authorised.' }
+
+const service = createServiceClient()
+await service
+  .from('table_with_rls')
+  .update({ field: value })
+  .eq('id', access.id)         // Service client, scoped to primary key
+```
+
+```ts
+// ❌ Wrong — UPDATE via regular client with no UPDATE RLS policy
+await supabase
+  .from('table_with_rls')
+  .update({ field: value })
+  .eq('user_id', user.id)      // This filter is invisible under RLS default-deny
+```
+
+### The check
+
+Before shipping any Server Action that calls `.update()` or `.delete()`, search the migrations for a matching RLS policy:
+```bash
+grep -r "FOR UPDATE\|FOR DELETE" supabase/migrations/ | grep <table_name>
+```
+If no result: the operation requires either a service client or a new migration adding the policy.
+
+---
+
+## Phase 11 — Refinements + Bug Fixes — 2026-06-16
+
+**What did I decide?**
+
+**1. Search belongs on the "All patients" page, not the sidebar.**
+The first implementation put a search input at the top of the sidebar nav. This was wrong for two reasons: the search only filtered patient name links, leaving "All patients", "Add patient", and the archive toggle unaffected — the mix of filtered and unfiltered items made the behaviour unpredictable. More fundamentally, sidebar search is a pattern for large persistent lists (Slack channels, Notion pages). A coordinator navigating between 5–15 patients uses the sidebar as a quick-jump list, not a search surface. Search belongs on the "All patients" page where you are already looking at the full list and expecting to narrow it. Removed from sidebar, added to `DashboardContent` as a client-side filter above the patient cards.
+
+**2. Default landing on patient detail changed from Documents to Summary.**
+After swapping tab order so Summary appears first, clicking a patient in the sidebar still navigated to `/dashboard/[patientId]` — the Documents route — activating the second tab visually while the first was Summary. The fix: all patient links (sidebar rows + All patients page cards) now link to `/dashboard/[patientId]/summary`. The URL and the active tab are now consistent.
+
+**3. Pin button rendered always, visibility toggled — not conditionally mounted.**
+The first pin implementation conditionally mounted the button (`{(hovered || isPinned) && <Button ...>}`). This caused a layout shift on hover: when the button appeared, it pushed the row height from the text-only height to text+button height. Fixed by always rendering the button with `opacity-0` and transitioning to `opacity-100` on group hover or when pinned. Height stays constant regardless of hover state.
+
+**4. Optimistic pin state — no waiting for server round-trip.**
+The pin action requires a Supabase UPDATE + `revalidatePath` which takes ~300ms. Without optimistic state, the pin icon stayed unchanged until the server responded. Added local `useState<boolean | null>` in `PatientRow` — null means "use the prop value", non-null means "use the optimistic value." On click, immediately flips the visual state; on revalidation, the prop updates and the null clears. The `revalidatePath('/', 'layout')` (changed from `/dashboard`) revalidates the coordinator layout which owns the sidebar, ensuring the sort order updates on next navigation.
+
+**5. Revoke access button hidden when no patient has access.**
+The revoke button was always visible in the coordinator header. If no patient has ever redeemed an invite, there is nobody to revoke — the button is misleading. Added a `COUNT` query in the `PatientDetailLayout` to check for `patient_access` rows with `role='patient'`. Renders `RevokeAccessButton` only when count > 0.
+
+**6. `TranslationOutputPanel` — status-aware content and redesigned layout.**
+The panel previously showed a pulsing skeleton whenever `translation === null`, regardless of whether the document was pending, classifying, or failed. This made failed documents look like loading documents — no way to tell the difference. Three distinct states now:
+- `failed`: error icon + "Could not process this document" + retry guidance
+- `pending_classification` / `classified`: skeleton + status-specific message ("Reading document…" / "Translating…")
+- `translated`: full translation content
+
+The layout redesign: fixed header (type tag + date + hospital + doc name) stays visible while body scrolls. Actions split into Coordinator / Patient sub-sections with small-caps labels, so coordinators can immediately see what they need to do vs. what the patient needs to do. Patient view shows "What you need to do" instead of the generic "Actions required." Brand tint background on "What this means" section for visual hierarchy.
+
+**7. Sidebar row heights standardised to `py-1.5`.**
+Three different height values existed: `py-1.5` (All patients + Add patient), `py-2` (patient rows), `h-8` (archive button). All nav items now use `py-1.5 px-2` as the standard row spec, giving consistent vertical rhythm across the entire sidebar.
+
+---
+
+**What resisted me?**
+
+**The `'use client'` + async RSC in the same file.**
+Moving search to the dashboard page initially placed `useState` and the async RSC in the same file, separated by a comment. Next.js 16 correctly flagged this: a file with `'use client'` cannot export an async function. Split into `DashboardContent.tsx` (client component, receives data as props) + `page.tsx` (RSC wrapper that fetches and passes). The pattern: RSC owns data, client component owns interaction.
+
+**`revalidatePath('/dashboard')` didn't update the sidebar after pinning.**
+The pin action called `revalidatePath('/dashboard')` which revalidates the `/dashboard` page. But when the coordinator is on `/dashboard/[patientId]/summary`, that path isn't being revalidated — the sidebar (which is part of the coordinator layout, not the page) never saw the updated data. Fixed with `revalidatePath('/', 'layout')` which revalidates the entire coordinator layout tree, including the sidebar. The distinction: `revalidatePath(path)` revalidates a page; `revalidatePath(path, 'layout')` revalidates a layout and all its children.
+
+---
+
+**What did I understand today that I didn't yesterday?**
+
+**Conditional mounting causes layout shifts; opacity toggling does not.**
+This is a fundamental React rendering principle that's easy to forget when you're thinking about "show/hide" as a boolean. Conditional mounting (`{condition && <Component />}`) removes and re-adds DOM nodes, causing layout recalculation and height changes. Opacity toggling (`opacity-0` / `opacity-100`) keeps the DOM node present, reserves its space, and changes only a paint property — no reflow, no shift. For any UI where consistent row height matters (nav items, list rows, table rows), opacity is always the right tool.
+
+**The coordinator's primary intent determines which tab should be default.**
+Tab order is not just aesthetics — the first tab is the default landing. Coordinator opens a patient → intent is "understand current situation" → Summary is correct default. Patient opens their care page → same intent → Summary is correct default. Documents is the reference layer. This is the same hierarchy as a medical chart: the summary page comes first, the raw records come after.
+
+---
+
+---
+
+## Architecture Enforcement Audit — 2026-06-17
+
+### What triggered this
+
+Before committing the Phase 11 sidebar/patient view work, a full architecture and security audit was run across all uncommitted files. The audit caught five violations. While fixing them, two systematic ESLint rules were added to prevent the same violations from being introduced again. Adding the rules then surfaced 20 pre-existing violations in the codebase (not introduced by Phase 11 — they had always been there) that were also fixed in the same session. This document captures the full incident: what was found, why it existed, how it was fixed, and what now prevents it from recurring.
+
+---
+
+### Incident 1: Hard Rule 11 violations — server actions imported directly in client components
+
+**What:** `'use client'` components importing runtime functions from `@/actions/*` directly, instead of receiving them as props from the parent RSC page/layout.
+
+**Where (Phase 11 new code):**
+- `components/features/CoordinatorSidebarNav.tsx` → imported `togglePinPatient`
+- `components/features/UserProfileMenu.tsx` → imported `logout`
+
+**Where (pre-existing, found by new lint rule):**
+- `app/(auth)/login/page.tsx` → `login`
+- `app/(auth)/register/page.tsx` → `register`
+- `components/features/CreateEpisodeButton.tsx` → `createEpisode`
+- `components/features/CreatePatientForm.tsx` → `createPatient`
+- `components/features/DocumentClassificationEditor.tsx` → `updateDocumentClassification`
+
+**Why it happened:** The pattern is subtle. The code works at runtime — Next.js 16 server actions serialise correctly across the RSC boundary regardless of where they're imported. The problem only manifests when the component is consumed in isolation (Storybook, Vitest). Server action files import `next/cache`, `next/headers`, and other Node.js-only modules. When Vite's ESM bundler tries to resolve these imports, it fails. Stories would crash on import — not on render. Because the failure mode is test-time, not runtime, it's easy to miss in manual testing.
+
+The secondary reason: CLAUDE.md documented this rule clearly, but there was no automated check. A rule that relies only on a written document will always be violated occasionally — the developer reading it on day 1 knows the rule, the developer returning to the file on day 30 may not.
+
+**Why `import type` is different:** `import type { Foo }` is erased completely at compile time by TypeScript and treated as non-existent by Vite. It cannot cause a module to be executed. The violation is specifically `import { fn }` (value import) from an action file, not `import type { Foo }` (type import). Several components correctly used `import type { SomeResultType }` from action files — these were not violations.
+
+**How it was fixed:**
+1. Removed the direct value import from each client component.
+2. Added the action as a typed prop to the component interface.
+3. The parent RSC page/layout — which can import server actions freely — imports the action and passes it as a prop.
+4. Stories were updated to pass `fn()` from `storybook/test` as the mock.
+
+For the auth pages (`login/page.tsx`, `register/page.tsx`) the fix required a different structure because there was no RSC parent — the entire page was a `'use client'` component. These were split: the form logic moved to `LoginForm.tsx` / `RegisterForm.tsx` (client components) and the page became a thin RSC wrapper that imports the action and renders `<LoginForm onLogin={login} />`. The auth form components live in `app/(auth)/` (not `components/`), so no stories are required.
+
+For `CreatePatientForm`, the action needed to be threaded through an intermediate client component (`DashboardContent`) before reaching the form. The chain: RSC `page.tsx` imports `createPatient` → passes to `DashboardContent` as prop → `DashboardContent` passes to `<CreatePatientForm onCreatePatient={...} />`. The `CreatePatientState` type needed to be carried across this boundary as an `import type` which is safe.
+
+**How it is now enforced — `carealig/no-client-action-import` ESLint rule:**
+
+Added to `eslint.config.mjs`. The rule:
+1. Detects whether the file starts with `'use client'` (checks `Program.body[0]` for a `'use client'` string literal).
+2. Collects all `ImportDeclaration` nodes where `source.value` starts with `@/actions/`.
+3. Skips `importKind === 'type'` (pure type imports — these are safe).
+4. Skips specifiers where every specifier has `importKind === 'type'` (mixed import where all values are types).
+5. Reports any remaining import at `Program:exit`.
+
+This rule fires at `pnpm lint:arch` time (which runs on every pre-commit hook) and will block the commit if violated. A developer cannot accidentally merge a Hard Rule 11 violation anymore.
+
+---
+
+### Incident 2: Raw Supabase table queries in pages and layouts
+
+**What:** RSC page and layout files calling `supabase.from('table_name')` directly, instead of routing data through `lib/dal/` functions.
+
+**Where (Phase 11 new code):**
+- `app/(patient)/patient/[patientId]/layout.tsx` → queried `patients` directly
+
+**Where (pre-existing):**
+- `app/(coordinator)/layout.tsx` → queried `profiles`
+- `app/(patient)/layout.tsx` → queried `profiles`
+- `app/(coordinator)/dashboard/[patientId]/page.tsx` → queried `patient_access`
+- `app/(coordinator)/dashboard/[patientId]/summary/page.tsx` → queried `patient_access`
+- `app/(coordinator)/dashboard/[patientId]/tasks/page.tsx` → queried `patient_access`
+- `app/(patient)/patient/page.tsx` → queried `patient_access`
+- `app/(public)/join/[token]/page.tsx` → queried `patient_invites`, `profiles`, `patient_access`
+
+**Why it happened:** The DAL pattern (`lib/dal/`) was established early but its scope wasn't formally stated. Files in `lib/dal/` use `cache()` from React so that repeated calls to the same function within one render cycle hit the database only once. Without this, if two components in the same render tree both need the user's profile, two separate round-trips to Supabase are made. Pages and layouts naturally drift toward inline queries because it's the shortest path from "I need data" to "I have data" — there's no error, no warning, just an uncached second trip.
+
+The secondary issue: without a DAL boundary, the same query logic is copy-pasted across multiple pages, creating duplication that diverges over time. The `patient_access` role check was written identically in three coordinator pages and two patient pages. If the access logic ever changes, all five files need to be updated.
+
+**Why this matters beyond caching:**
+- **Privacy boundary enforcement:** When a query is in a DAL function, it's easy to review all data access in one place. When it's scattered across pages, access control logic becomes invisible.
+- **Testability:** DAL functions can be tested in isolation. Inline page queries cannot.
+- **Type safety:** DAL functions define a stable return type. Inline queries produce raw Supabase response types that propagate through the component tree.
+
+**How it was fixed — new DAL functions created:**
+
+`lib/dal/profiles.ts` — new file:
+- `getProfile(userId)`: fetches `name` and `role` from `profiles`. Used by coordinator layout and patient layout to replace inline queries.
+
+`lib/dal/invites.ts` — new file:
+- `getInviteByToken(token)`: fetches `patient_invites` using `createServiceClient()` (bypasses RLS because invite lookup happens before authentication). Used by the join page. The service client usage here is intentional and correct — the invite token is the authentication mechanism; the service client is needed to read the invite before any user exists.
+
+`lib/dal/patients.ts` — new functions added:
+- `getFirstPatientId(userId)`: finds the most recent `patient_access` row with `role='patient'` for a user. Used by the patient index page to redirect to the correct patient view.
+- `getPatientAccess(patientId)`: (added in Phase 11) returns the current user's `patient_access` row for a given patient, or null. Used by all coordinator patient detail pages (replacing the copy-pasted `patient_access` query) and by the join page to check for existing access.
+
+All DAL functions use `cache()` from React so repeated calls within the same render cycle are deduplicated.
+
+**How it is now enforced — `carealig/no-supabase-table-query-in-pages` ESLint rule:**
+
+Added to `eslint.config.mjs`. The rule:
+1. Scopes to files matching `/app\/.*\/(page|layout)\.tsx$/` only.
+2. Flags any `CallExpression` where the callee has property name `from` AND the first argument is a string literal (the table name).
+3. The string literal constraint is the key: `supabase.from('patients')` is flagged; `Array.from(iterable)` is not (array methods don't use string table names).
+4. Auth calls (`supabase.auth.getUser()`) are not affected — `.auth.` is a different method chain.
+
+The rule fires at `pnpm lint:arch` time. Data queries in page or layout files are now a build failure.
+
+---
+
+### Incident 3: Patient layout missing auth gate — data leaked before page checked access
+
+**What:** `app/(patient)/patient/[patientId]/layout.tsx` rendered the hospital name and episode date from the context header without first checking that the logged-in user has `patient_access` to that patient.
+
+**Where:** `app/(patient)/patient/[patientId]/layout.tsx` (new file in Phase 11).
+
+**Why it happened:** The auth check was placed in each child page (`page.tsx` for documents, `summary/page.tsx` for summary). The layout only fetched the patient record and derived the display info. The assumption was that the pages would gate access before rendering. But the layout runs before the pages and renders its own output (the context header) regardless of whether the page renders.
+
+**The actual privacy exposure:** A logged-in patient with access to patient-A could navigate directly to `/patient/patient-B/summary`. The layout would render patient-B's hospital name and episode start date in the header. The page would then show the "Your access to this care record has ended" error. But the hospital name and episode date had already been exposed in the layout. This is not a catastrophic breach (hospital name and episode date are not diagnostically sensitive), but it is a privacy violation.
+
+**A secondary problem:** The same `patient_access` check was duplicated in both `page.tsx` and `summary/page.tsx`. Two identical DB queries per render, no caching, and logic that would need to be updated in two places if the access rules changed.
+
+**How it was fixed:**
+1. The auth check moved to the layout: `getUser()` → redirect to `/login` if absent; `getPatientAccess(patientId)` → show friendly error message if no `role='patient'` access.
+2. The layout now only renders the context header and tab nav if the auth check passes.
+3. Both child pages had their duplicate access checks removed. They trust the layout's gate.
+4. `getPatientAccess()` is `cache()`-wrapped so if a page somehow calls it again, it doesn't hit the DB twice.
+
+**The architectural principle this establishes:** An RSC layout is the right place for route-level access control in Next.js App Router. A layout renders its own output before children render — if the auth check is only in children, the layout's output (headers, nav, context panels) can leak data to unauthorized users. The layout must own the gate for any data it exposes in its own render output.
+
+---
+
+### What changed in the enforcement stack
+
+Before this session, `pnpm lint:arch` ran: `tsc --noEmit` + `eslint` (6 custom rules) + `check-stories.mjs`.
+
+After this session, `eslint` now runs 8 custom rules:
+1. `carealig/no-raw-html-primitives` — Shadcn primitives in feature components
+2. `carealig/no-inline-domain-types` — DB-aligned types from `lib/types/domain.ts` only
+3. `carealig/no-deprecated-ai-sdk` — no `generateObject`, `streamObject`, `NoObjectGeneratedError`
+4. `carealig/no-console-in-server-files` — use `createLogger()` in server files
+5. `carealig/server-action-requires-safeParse` — formData calls must go through schema validation
+6. `carealig/no-client-action-import` ← **NEW** — Hard Rule 11: no action imports in `'use client'` files
+7. `carealig/no-supabase-table-query-in-pages` ← **NEW** — data in pages/layouts must go through DAL
+8. `carealig/no-raw-color-values` — design tokens only, no arbitrary color values
+
+Rules 6 and 7 directly address the two patterns that repeatedly appeared as violations across this session. Both would have caught the violations in Phase 11 new code before the audit was needed.
+
+---
+
+**What did I decide?**
+
+After finding the 5 violations in Phase 11 code, rather than just fixing them and moving on, the decision was to make them impossible to reintroduce. This meant writing two new AST-based ESLint rules instead of relying on CLAUDE.md documentation alone. The reasoning: a rule that depends on a developer remembering a document is a weak rule. A rule that blocks CI is a strong rule. The 20 pre-existing violations surfaced by the new rules were also fixed completely — no `eslint-disable` comments, no deferred TODO items. Each violation was fixed in its architecturally correct way.
+
+**What resisted me?**
+
+The `import type` precision issue. The initial rule flagged all `@/actions/*` imports in client files, including `import type { SomeResultType }`. Type-only imports are erased at compile time and never cause the bundler problem the rule is meant to prevent. The fix required checking `node.importKind === 'type'` at the import level and `s.importKind !== 'type'` at the specifier level for mixed imports. A rule that's too broad creates noise that developers learn to ignore — precision matters as much as coverage.
+
+The auth page split was a larger structural change than expected. The login and register pages were single `'use client'` files with no RSC parent. The correct fix wasn't just removing the import — it required introducing the RSC/client split for pages that had never had it. This is the standard Next.js architecture pattern but it changes the file count and the mental model for anyone reading the auth directory.
+
+**What did I understand today that I didn't yesterday?**
+
+The enforcement stack has a compounding property: each rule added makes it harder to violate any other rule. `no-client-action-import` forces prop injection, which forces stories to use `fn()`, which forces the story to be correct, which means the `check-stories.mjs` gate becomes more meaningful. The rules don't just catch individual violations — they reinforce each other into a coherent architecture that's hard to violate accidentally.
+
+The DAL boundary is a privacy boundary, not just a caching boundary. Centralising data access in `lib/dal/` means that when a security reviewer audits what data the application can access and under what conditions, they have one place to look. Queries scattered across pages are invisible to that review. "Move queries to DAL" and "prevent data leaks" are the same instruction.
+
+---
+
 ## Content Pipeline
 
 When ready to post, paste raw notes from any phase above into a Claude conversation with:

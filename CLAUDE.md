@@ -105,6 +105,19 @@ ALTER FUNCTION public.handle_new_user() OWNER TO postgres;
 
 **Chicken-and-egg pattern — patient creation:** RLS on `patients` requires a `patient_access` row to exist, but that row can't exist until the patient is created. Solution: use `createServiceClient()` (service role, bypasses RLS) for the initial `patients` insert, then immediately insert the `patient_access` row. All subsequent queries use the regular `createClient()` and RLS works correctly from that point. See `actions/create-patient.ts`.
 
+**RLS UPDATE/DELETE silent failure — the most repeated bug in this codebase.** This has occurred three times:
+1. `patient_invites.expires_at` UPDATE — silently updated 0 rows
+2. `patient_invites.pin_locked_at` — caught before shipping
+3. `patient_access.pinned_at` UPDATE — silently updated 0 rows
+
+**The pattern:** A new column is added to an existing table via migration. A `GRANT UPDATE (col) TO authenticated` is added. The Server Action uses `createClient()` and returns `{ error: null }` — success. But the row count is 0. Nothing was written. The reason: `GRANT` covers the PostgreSQL permission layer. RLS covers the row-visibility layer. A table with RLS enabled and no UPDATE policy defaults to **deny all updates** even when the GRANT exists. Both layers must pass.
+
+**The rule:** Every Server Action that calls `.update()` or `.delete()` on a table with RLS enabled must either:
+- Use `createServiceClient()` after verifying the caller's permissions in application code (preferred for ad-hoc updates like pinning where an RLS policy would be narrow), OR
+- Have an explicit RLS UPDATE/DELETE policy that matches the intended callers
+
+**How to check:** After writing any `.update()` or `.delete()` in a Server Action, grep the migration files for `FOR UPDATE` or `FOR DELETE` on that table. If no policy exists, the operation will silently fail.
+
 ---
 
 ## Hard Rules — Do Not Violate
@@ -134,7 +147,11 @@ ALTER FUNCTION public.handle_new_user() OWNER TO postgres;
     - Voice interaction
     - ABDM / Eka Care integration (unless API access arrives before ship)
 
-11. **Client components never import server actions directly.** Server actions are injected as props by the parent RSC page or layout. Stories pass `fn()` from `storybook/test`. Direct imports pull `next/cache`, `next/headers`, and other Node-only modules into Vite's ESM bundler, crashing Storybook and the test runner. Pattern and worked example: `docs/COMPONENT_PLAN.md` — Server Action Injection Pattern.
+11. **Client components never import server actions directly.** Server actions are injected as props by the parent RSC page or layout. Stories pass `fn()` from `storybook/test`. Direct imports pull `next/cache`, `next/headers`, and other Node-only modules into Vite's ESM bundler, crashing Storybook and the test runner. Pattern and worked example: `docs/COMPONENT_PLAN.md` — Server Action Injection Pattern. **`pnpm lint:arch` enforces this** — `carealig/no-client-action-import` blocks any `import { fn }` from `@/actions/*` in a `'use client'` file. `import type { ... }` is allowed (type-only, erased at compile time).
+
+12. **Data fetching in pages and layouts goes through `lib/dal/` only.** RSC pages and layouts must not call `supabase.from('table')` directly. All table queries belong in `lib/dal/*.ts` functions, which are `cache()`-wrapped for deduplication within a render cycle. `supabase.auth.getUser()` is allowed inline (auth, not data). **`pnpm lint:arch` enforces this** — `carealig/no-supabase-table-query-in-pages` blocks `.from(stringLiteral)` in any `page.tsx` or `layout.tsx`. The DAL boundary is also a privacy boundary: centralising queries makes data access auditable.
+
+    **Auth gate rule for layouts:** Any RSC layout that renders data in its own output (headers, nav, context panels) must check `patient_access` before rendering that data — not rely on child pages to check. A child page's auth check does not prevent the layout's own output from being rendered first. The correct pattern: layout checks auth → shows friendly error or renders children.
 
 13. **All DB-aligned union types live in `lib/types/domain.ts` only.** Never redefine `DocumentType`, `EpisodeStatus`, `TaskCategory`, `TranslationStatus`, `DocumentStatus`, `ActionFor`, `TaskPhase`, `TaskStatus`, `UserRole`, or `AdmissionStatus` inline in any component, action, or other lib file. Import them. `pnpm lint:types` enforces this — a violation causes silent type drift when a DB enum changes.
 
@@ -218,7 +235,7 @@ Run `pnpm lint:arch` before committing. The pre-commit git hook (`.githooks/pre-
 | Step | What it catches |
 |------|-----------------|
 | `tsc --noEmit` | All TypeScript type errors including unused variables and parameters |
-| `eslint` (AST-based) | Raw HTML primitives in composites/features; inline domain type redefs; deprecated AI SDK APIs; `console.*` in server files; server actions missing `.safeParse()`; unused imports/vars; floating promises; exhaustive hook deps |
+| `eslint` (AST-based) | Raw HTML primitives in composites/features; inline domain type redefs; deprecated AI SDK APIs; `console.*` in server files; server actions missing `.safeParse()`; direct action imports in `'use client'` files; raw Supabase table queries in pages/layouts; unused imports/vars; floating promises; exhaustive hook deps |
 | `node scripts/check-stories.mjs` | Missing or stale `.stories.tsx` alongside any component (filesystem check — ESLint cannot do this) |
 
 **Retired scripts** (`check-primitives.mjs`, `check-schemas.mjs`, `check-types.mjs`) — deleted. Their checks now live in `eslint.config.mjs` as AST-accurate custom rules under the `carealig/` plugin namespace. The regex-based scripts had a multiline JSX gap that silently passed violations; ESLint does not.
@@ -229,6 +246,8 @@ Run `pnpm lint:arch` before committing. The pre-commit git hook (`.githooks/pre-
 - `carealig/no-deprecated-ai-sdk` — replaces the AI SDK check in `check-types.mjs`
 - `carealig/no-console-in-server-files` — replaces the logging check in `check-schemas.mjs`
 - `carealig/server-action-requires-safeParse` — replaces the server-action check in `check-schemas.mjs`
+- `carealig/no-client-action-import` — enforces Hard Rule 11: blocks `import { fn }` from `@/actions/*` in any `'use client'` file; `import type` is allowed
+- `carealig/no-supabase-table-query-in-pages` — blocks `.from('table')` calls in `app/**/page.tsx` and `app/**/layout.tsx`; all data fetching goes through `lib/dal/`
 - `carealig/no-raw-color-values` — no raw `oklch()`/`#hex`/`rgb()` in `className` or `style` props; all colors must use design token Tailwind classes or `var(--token)`
 
 **Design token naming convention** (`globals.css` → `@theme inline` → Tailwind utilities):
@@ -257,10 +276,26 @@ Every phase must be closed in this order before any new phase work begins:
 2. `pnpm lint:arch` — all 4 checks green
 3. `pnpm test` — all tests pass
 4. Update `docs/CONTENT_LOG.md` — answer the three questions for the phase
-5. Commit with a phase-named message (e.g. `feat: Phase 7 — coordinator dashboard display`)
+5. Commit in **category groups** — never one mega-commit for a whole phase (see below)
 6. `git status` clean — nothing uncommitted before proceeding
 
-**Why this order matters:** Phases overlap in files. If Phase 8 starts before Phase 7 is committed, the two phases become entangled in the diff and cannot be separated cleanly. Each phase is one commit. Each commit is one phase.
+**Why this order matters:** Phases overlap in files. If Phase 8 starts before Phase 7 is committed, the two phases become entangled in the diff and cannot be separated cleanly.
+
+**Commit grouping within a phase — always group by layer, never one shot:**
+
+A single 30-file commit is as hard to review as a multi-phase mega-commit. Commit in this order when a phase touches multiple layers:
+
+| Layer | What goes in | Example message |
+|-------|-------------|-----------------|
+| 1 — Schema / migration | SQL migrations only | `feat: add pinned_at column to patient_access` |
+| 2 — DAL | New/updated `lib/dal/*.ts` functions | `refactor: expand DAL — profiles, invites, patients` |
+| 3 — Actions | New/updated `actions/*.ts` | `feat: pin-patient server action` |
+| 4 — Enforcement | ESLint rules, lint scripts, CI config | `refactor: add ESLint boundary rules` |
+| 5 — Components + stories | Component file paired with its story | `refactor: inject server actions as props (Hard Rule 11)` |
+| 6 — Pages / layouts | RSC wrappers, route-level data fetching | `refactor: migrate pages and layouts to DAL boundary` |
+| 7 — Documentation | CLAUDE.md, CONTENT_LOG.md, docs/ | `docs: architecture enforcement audit` |
+
+Not every layer needs a commit — only layers that actually changed. Two layers may be combined when they're tightly coupled (e.g. migration + action when the action only exists because of that migration).
 
 ---
 
