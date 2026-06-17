@@ -240,7 +240,88 @@ const carealigPlugin = {
       },
     },
 
-    // Rule 6 — No raw color values in className arbitrary syntax or style props.
+    // Rule 6 — Client components must not import server actions directly (Hard Rule 11).
+    // Server actions import next/cache, next/headers, and other Node-only modules that
+    // crash Vite's ESM bundler when Storybook or the test runner tries to import the component.
+    // Actions must be passed as props from RSC pages/layouts; stories use fn() from storybook/test.
+    'no-client-action-import': {
+      meta: {
+        type: 'problem',
+        docs: { description: 'Client components must receive server actions as props, not import them directly' },
+        schema: [],
+      },
+      create(context) {
+        let isClientComponent = false
+        const actionImports = []
+
+        return {
+          Program(node) {
+            const first = node.body[0]
+            if (
+              first?.type === 'ExpressionStatement' &&
+              first.expression?.type === 'Literal' &&
+              first.expression.value === 'use client'
+            ) {
+              isClientComponent = true
+            }
+          },
+          ImportDeclaration(node) {
+            if (typeof node.source.value !== 'string') return
+            if (!node.source.value.startsWith('@/actions/')) return
+            // import type { ... } is erased at compile time — safe in client files.
+            // Only flag imports that pull in runtime values (functions, objects).
+            if (node.importKind === 'type') return
+            const hasValueSpecifier = node.specifiers.some(
+              s => s.type !== 'ImportSpecifier' || s.importKind !== 'type'
+            )
+            if (hasValueSpecifier) actionImports.push(node)
+          },
+          'Program:exit'() {
+            if (!isClientComponent) return
+            for (const node of actionImports) {
+              context.report({
+                node,
+                message: `Client component imports server action '${node.source.value}' directly (Hard Rule 11). Pass it as a prop from the parent RSC page/layout instead.`,
+              })
+            }
+          },
+        }
+      },
+    },
+
+    // Rule 7 — No raw Supabase table queries (.from('table')) in page or layout files.
+    // Data fetching must go through lib/dal/* functions so queries are cached, typed,
+    // and colocated. Auth calls (supabase.auth.*) are fine in pages/layouts.
+    // Detection: .from(stringLiteral) — string arg distinguishes table queries from Array.from().
+    'no-supabase-table-query-in-pages': {
+      meta: {
+        type: 'problem',
+        docs: { description: 'Move Supabase table queries from pages/layouts into lib/dal/ functions' },
+        schema: [],
+      },
+      create(context) {
+        const filename = context.getFilename()
+        if (!/\/app\/.*\/(page|layout)\.tsx$/.test(filename)) return {}
+
+        return {
+          CallExpression(node) {
+            const callee = node.callee
+            if (callee.type !== 'MemberExpression') return
+            if (callee.property.name !== 'from') return
+
+            const firstArg = node.arguments[0]
+            if (!firstArg || firstArg.type !== 'Literal' || typeof firstArg.value !== 'string') return
+
+            context.report({
+              node,
+              message: `Direct .from('${firstArg.value}') in a page/layout — move this query to a lib/dal/ function so it is cached and reusable.`,
+            })
+          },
+        }
+      },
+    },
+
+    // Rule 8 — No raw color values in className arbitrary syntax or style props.
     // All colors must reference a design token via a Tailwind class or var(--token).
     //
     // Forbidden:  className="bg-[oklch(0.44_0.11_183)]"
@@ -397,6 +478,8 @@ export default defineConfig([
       'carealig/no-deprecated-ai-sdk': 'error',
       'carealig/no-console-in-server-files': 'error',
       'carealig/server-action-requires-safeParse': 'error',
+      'carealig/no-client-action-import': 'error',
+      'carealig/no-supabase-table-query-in-pages': 'error',
       'carealig/no-raw-color-values': 'error',
     },
   },
