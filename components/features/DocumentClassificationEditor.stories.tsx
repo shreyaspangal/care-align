@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect, userEvent } from 'storybook/test'
+import { fn, expect, userEvent } from 'storybook/test'
 import { DocumentClassificationEditor } from './DocumentClassificationEditor'
 
 const meta = {
@@ -8,6 +8,7 @@ const meta = {
   parameters: { layout: 'padded' },
   args: {
     documentId: 'doc-demo-001',
+    onUpdateClassification: fn(),
     current: {
       type: 'lab_report',
       purpose: 'Pre-operation blood work',

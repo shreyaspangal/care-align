@@ -3,16 +3,20 @@
 import { useState, useTransition } from 'react'
 import { Loader2, PlusCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { createEpisode } from '@/actions/create-episode'
 
-export function CreateEpisodeButton({ patientId }: { patientId: string }) {
+type Props = {
+  patientId: string
+  onCreateEpisode: (patientId: string) => Promise<{ error: string } | { ok: true }>
+}
+
+export function CreateEpisodeButton({ patientId, onCreateEpisode }: Props) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
   function handleClick() {
     setError(null)
     startTransition(async () => {
-      const result = await createEpisode(patientId)
+      const result = await onCreateEpisode(patientId)
       if ('error' in result) setError(result.error)
     })
   }

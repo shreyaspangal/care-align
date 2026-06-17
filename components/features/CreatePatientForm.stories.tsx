@@ -1,25 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect } from 'storybook/test'
+import { fn, expect } from 'storybook/test'
 import { CreatePatientForm } from './CreatePatientForm'
 
-/**
- * Form for creating a new patient record and opening their first episode.
- *
- * Uses `useActionState(createPatient, null)` — all fields are controlled inputs
- * so values survive error re-renders without resetting.
- *
- * Zod-validated server-side via `CreatePatientSchema`:
- * - name: required, trimmed
- * - dob: required date string
- * - gender: Male | Female | Other
- * - admission_status: admitted | outpatient (default: admitted)
- */
 const meta = {
   component: CreatePatientForm,
   tags: ['autodocs'],
-  parameters: {
-    layout: 'padded',
-  },
+  parameters: { layout: 'padded' },
+  args: { onCreatePatient: fn() },
 } satisfies Meta<typeof CreatePatientForm>
 
 export default meta

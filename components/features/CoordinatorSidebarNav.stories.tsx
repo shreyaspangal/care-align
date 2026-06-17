@@ -1,16 +1,17 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
-import { expect } from 'storybook/test'
+import { fn, expect } from 'storybook/test'
 import { CoordinatorSidebarNav } from './CoordinatorSidebarNav'
 
 const PATIENTS = [
-  { id: 'patient-001', name: 'Ramesh Sharma', admission_status: 'admitted',  date_of_birth: '1958-03-12' },
-  { id: 'patient-002', name: 'Priya Nair',    admission_status: 'outpatient', date_of_birth: '1985-07-22' },
+  { id: 'patient-001', name: 'Ramesh Sharma', admission_status: 'admitted',  date_of_birth: '1958-03-12', pinned_at: null },
+  { id: 'patient-002', name: 'Priya Nair',    admission_status: 'outpatient', date_of_birth: '1985-07-22', pinned_at: null },
 ]
 
 const meta = {
   component: CoordinatorSidebarNav,
   tags: ['autodocs'],
   parameters: { layout: 'padded' },
+  args: { onTogglePin: fn() },
 } satisfies Meta<typeof CoordinatorSidebarNav>
 
 export default meta
@@ -42,7 +43,7 @@ export const EmptyList: Story = {
   parameters: { nextjs: { navigation: { pathname: '/dashboard' } } },
   args: { patients: [] },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText('No patients yet.')).toBeVisible()
+    await expect(canvas.getByText('No active patients.')).toBeVisible()
     await expect(canvas.getByText('Add patient')).toBeVisible()
   },
 }
