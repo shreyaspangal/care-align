@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { createServiceClient } from '@/lib/supabase/service'
 import {
   redeemToken,
   autoJoinAsPatient,
@@ -12,6 +11,9 @@ import { Logo } from '@/components/ui/logo'
 import { AutoJoinForm } from './AutoJoinForm'
 import { PinEntryForm } from './PinEntryForm'
 import { JoinForm } from './JoinForm'
+import { getInviteByToken } from '@/lib/dal/invites'
+import { getProfile } from '@/lib/dal/profiles'
+import { getPatientAccess } from '@/lib/dal/patients'
 
 type Props = {
   params: Promise<{ token: string }>
@@ -19,15 +21,9 @@ type Props = {
 
 export default async function JoinPage({ params }: Props) {
   const { token } = await params
-  const service = createServiceClient()
 
-  const { data: invite } = await service
-    .from('patient_invites')
-    .select('id, patient_id, expires_at, used_at, pin_hash, pin_locked_at, patients(name)')
-    .eq('token', token)
-    .maybeSingle()
+  const invite = await getInviteByToken(token)
 
-  // Universal guards (apply before any user check)
   if (!invite) {
     return <ErrorPage message="This invite link is invalid or has already been removed." />
   }
@@ -46,11 +42,7 @@ export default async function JoinPage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (user) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+    const profile = await getProfile(user.id)
 
     // Coordinator: go to their view without touching the token
     if (profile?.role === 'coordinator') {
@@ -58,14 +50,7 @@ export default async function JoinPage({ params }: Props) {
     }
 
     // Patient who already has access (reload case): redirect directly
-    const { data: existingAccess } = await supabase
-      .from('patient_access')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('patient_id', invite.patient_id)
-      .eq('role', 'patient')
-      .maybeSingle()
-
+    const existingAccess = await getPatientAccess(invite.patient_id)
     if (existingAccess) {
       redirect(`/patient/${invite.patient_id}`)
     }
@@ -76,8 +61,7 @@ export default async function JoinPage({ params }: Props) {
     }
 
     // PIN-protected invite: logged-in users without existing access must still
-    // verify the PIN. An anonymous session is not proof of identity — the PIN
-    // is the second factor that confirms the right person has the code.
+    // verify the PIN. An anonymous session is not proof of identity.
     if (invite.pin_hash) {
       const boundVerify = verifyPinAndJoin.bind(null, token)
       return (
@@ -109,7 +93,6 @@ export default async function JoinPage({ params }: Props) {
   }
 
   // No PIN → frictionless anonymous access
-  // AutoJoinForm auto-submits on mount; falls back to JoinForm if anonymous auth fails
   const boundAutoJoin = autoJoinAsPatient.bind(null, token)
   const boundSignIn   = signInAndJoin.bind(null, token)
   const boundSignUp   = signUpAndJoin.bind(null, token)

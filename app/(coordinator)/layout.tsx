@@ -1,9 +1,13 @@
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import Script from 'next/script'
 import { createClient } from '@/lib/supabase/server'
 import { logout } from '@/actions/auth'
+import { getProfile } from '@/lib/dal/profiles'
+import { togglePinPatient } from '@/actions/pin-patient'
 import { Logo } from '@/components/ui/logo'
 import { CoordinatorSidebarNav } from '@/components/features/CoordinatorSidebarNav'
+import { UserProfileMenu } from '@/components/features/UserProfileMenu'
 import { getCoordinatorPatients } from '@/lib/dal/patients'
 
 export default async function CoordinatorLayout({
@@ -15,64 +19,50 @@ export default async function CoordinatorLayout({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('name, role')
-    .eq('id', user.id)
-    .single()
-
+  const profile = await getProfile(user.id)
   if (!profile || profile.role !== 'coordinator') redirect('/login')
 
   const patients = await getCoordinatorPatients(user.id)
-  const initial = profile.name?.[0]?.toUpperCase() ?? '?'
+  const initial  = profile.name?.[0]?.toUpperCase() ?? '?'
 
   return (
     <>
     <div className="min-h-screen lg:grid lg:grid-cols-[240px_1fr]">
 
       {/* ── Sidebar — desktop only ─────────────────────────────────── */}
-      <aside className="hidden lg:flex flex-col border-r border-border bg-card">
+      {/* sticky + h-screen keeps the sidebar viewport-height regardless */}
+      {/* of how tall the right content column grows                    */}
+      <aside className="hidden lg:flex flex-col border-r border-border bg-card sticky top-0 h-screen overflow-hidden">
 
-        {/* Logo */}
+        {/* Logo — clicking always navigates home to /dashboard */}
         <div className="h-14 flex items-center px-4 border-b border-border flex-shrink-0">
-          <Logo size="sm" />
+          <Link href="/dashboard" aria-label="All patients">
+            <Logo size="sm" />
+          </Link>
         </div>
 
-        {/* Patient nav */}
-        <CoordinatorSidebarNav patients={patients} />
+        {/* Patient nav — scrollable */}
+        <CoordinatorSidebarNav patients={patients} onTogglePin={togglePinPatient} />
 
-        {/* User + sign out */}
-        <div className="border-t border-border p-3 flex items-center gap-2.5 flex-shrink-0">
-          <div className="w-7 h-7 rounded-full bg-brand-tint flex items-center justify-center text-brand-base text-xs font-bold flex-shrink-0">
-            {initial}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-foreground truncate">{profile.name}</p>
-            <form action={logout}>
-              <button
-                type="submit"
-                className="text-2xs text-muted-foreground hover:text-foreground transition-colors"
-                style={{ transitionDuration: 'var(--duration-base)' }}
-              >
-                Sign out
-              </button>
-            </form>
-          </div>
+        {/* Profile — anchored to bottom */}
+        <div className="border-t border-border p-2 flex-shrink-0">
+          <UserProfileMenu
+            name={profile.name ?? 'Coordinator'}
+            email={user.email ?? ''}
+            initial={initial}
+            onLogout={logout}
+          />
         </div>
       </aside>
 
       {/* ── Main area ──────────────────────────────────────────────── */}
       <div className="flex flex-col min-h-screen lg:min-h-0">
 
-        {/* Mobile header — hidden on desktop where sidebar takes over */}
+        {/* Mobile header */}
         <header className="lg:hidden border-b-2 border-brand-base bg-card px-4 h-14 flex items-center justify-between flex-shrink-0">
-          <Logo size="md" />
+          <Link href="/dashboard"><Logo size="md" /></Link>
           <form action={logout}>
-            <button
-              type="submit"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-              style={{ transitionDuration: 'var(--duration-base)' }}
-            >
+            <button type="submit" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Sign out
             </button>
           </form>
@@ -83,7 +73,6 @@ export default async function CoordinatorLayout({
 
     </div>
 
-    {/* Google Maps Places — loaded once for the coordinator shell; needed by hospital autocomplete */}
     {process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY && (
       <Script
         id="google-maps"

@@ -1,6 +1,8 @@
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getActiveEpisode, getEpisodeSummary, getOpenTaskCounts } from '@/lib/dal/episodes'
+import { getPatientAccess } from '@/lib/dal/patients'
+import { createEpisode } from '@/actions/create-episode'
 import { EpisodeSummaryPanel } from '@/components/features/EpisodeSummaryPanel'
 import { CreateEpisodeButton } from '@/components/features/CreateEpisodeButton'
 import { updateEpisodeStatus } from '@/actions/update-episode-status'
@@ -16,13 +18,7 @@ export default async function CoordinatorSummaryPage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: access } = await supabase
-    .from('patient_access')
-    .select('role')
-    .eq('user_id', user.id)
-    .eq('patient_id', patientId)
-    .single()
-
+  const access = await getPatientAccess(patientId)
   if (!access || access.role !== 'coordinator') notFound()
 
   const activeEpisode = await getActiveEpisode(patientId)
@@ -48,7 +44,7 @@ export default async function CoordinatorSummaryPage({ params }: Props) {
       ) : (
         <div className="rounded-xl border border-dashed bg-card p-8 flex flex-col items-center gap-3 text-center">
           <p className="text-sm text-muted-foreground">No active episode — upload documents first to generate a summary.</p>
-          <CreateEpisodeButton patientId={patientId} />
+          <CreateEpisodeButton patientId={patientId} onCreateEpisode={createEpisode} />
         </div>
       )}
     </div>

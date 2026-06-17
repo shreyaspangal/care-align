@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { logout } from '@/actions/auth'
+import { getProfile } from '@/lib/dal/profiles'
 import { Logo } from '@/components/ui/logo'
 
 export default async function PatientLayout({
@@ -13,24 +14,18 @@ export default async function PatientLayout({
 
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('name, role')
-    .eq('id', user.id)
-    .single()
-
+  const profile = await getProfile(user.id)
   if (!profile) redirect('/login')
 
   // Coordinators must never reach the patient shell — redirect them to their own dashboard.
-  // This is independent of the invite flow; the patient route is self-enforcing.
   if (profile.role === 'coordinator') redirect('/dashboard')
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="border-b-2 border-patient-base bg-patient-surface px-4 h-14 flex items-center justify-between">
+      <header className="border-b border-border bg-card px-4 h-14 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Logo size="md" />
-          <span className="text-2xs font-semibold tracking-widest uppercase px-2 py-0.5 rounded-full bg-patient-tint text-patient-base">
+          <span className="text-2xs font-semibold tracking-widest uppercase px-2 py-0.5 rounded-full bg-brand-tint text-brand-base">
             Your care
           </span>
         </div>

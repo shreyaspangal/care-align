@@ -5,7 +5,7 @@ import type { ReactNode } from 'react'
 import { PatientTabNav } from '@/components/features/PatientTabNav'
 import { PatientInviteButton } from '@/components/features/PatientInviteButton'
 import { RevokeAccessButton } from '@/components/features/RevokeAccessButton'
-import { getPatient } from '@/lib/dal/patients'
+import { getPatient, getPatientAccessCount } from '@/lib/dal/patients'
 import { createInvite } from '@/actions/create-invite'
 import { revokePatientAccess } from '@/actions/revoke-patient-access'
 
@@ -18,6 +18,9 @@ export default async function PatientDetailLayout({ children, params }: Props) {
   const { patientId } = await params
   const patient = await getPatient(patientId)
   if (!patient) notFound()
+
+  const patientAccessCount = await getPatientAccessCount(patientId, 'patient')
+  const hasPatientAccess = patientAccessCount > 0
 
   return (
     <div className="flex flex-col">
@@ -37,11 +40,13 @@ export default async function PatientDetailLayout({ children, params }: Props) {
             </p>
           </div>
           <div className="flex items-center gap-1">
-            <RevokeAccessButton
-              patientName={patient.name}
-              patientId={patientId}
-              onRevoke={revokePatientAccess}
-            />
+            {hasPatientAccess && (
+              <RevokeAccessButton
+                patientName={patient.name}
+                patientId={patientId}
+                onRevoke={revokePatientAccess}
+              />
+            )}
             <PatientInviteButton
               patientId={patientId}
               patientName={patient.name}

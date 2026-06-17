@@ -1,6 +1,7 @@
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getActiveEpisode } from '@/lib/dal/episodes'
+import { getPatientAccess } from '@/lib/dal/patients'
 import { getEpisodeTasks } from '@/lib/dal/tasks'
 import { TasksClient } from '@/components/features/TasksClient'
 import { resolveTask } from '@/actions/resolve-task'
@@ -16,13 +17,7 @@ export default async function TasksPage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: access } = await supabase
-    .from('patient_access')
-    .select('role')
-    .eq('user_id', user.id)
-    .eq('patient_id', patientId)
-    .single()
-
+  const access = await getPatientAccess(patientId)
   if (!access || access.role !== 'coordinator') notFound()
 
   const activeEpisode = await getActiveEpisode(patientId)

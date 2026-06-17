@@ -1,24 +1,14 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getFirstPatientId } from '@/lib/dal/patients'
 
 export default async function PatientIndexPage() {
   const supabase = await createClient()
-
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: access } = await supabase
-    .from('patient_access')
-    .select('patient_id')
-    .eq('user_id', user.id)
-    .eq('role', 'patient')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (access?.patient_id) {
-    redirect(`/patient/${access.patient_id}`)
-  }
+  const patientId = await getFirstPatientId(user.id)
+  if (patientId) redirect(`/patient/${patientId}`)
 
   return (
     <div className="max-w-xl mx-auto px-4 py-16 text-center space-y-4">
