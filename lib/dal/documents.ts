@@ -23,10 +23,59 @@ export type EpisodeDocument = {
   type: DocumentType
   purpose: string | null
   document_date: string | null
+  source_hospital: string | null
   created_at: string
   status: DocumentStatus
   translation: DocumentTranslation | null
 }
+
+export type PatientAction = {
+  id: string
+  description: string
+  category: TaskCategory
+  documentName: string
+}
+
+/**
+ * Returns all patient-facing actions across all translated documents in an episode.
+ * Used in the patient Summary tab to show "What you need to do."
+ */
+export const getPatientActions = cache(async (episodeId: string): Promise<PatientAction[]> => {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('documents')
+    .select(`
+      name,
+      document_translations (
+        document_actions ( id, description, category, action_for )
+      )
+    `)
+    .eq('episode_id', episodeId)
+    .eq('status', 'translated')
+    .is('deleted_at', null)
+
+  if (!data) return []
+
+  const actions: PatientAction[] = []
+  for (const doc of data) {
+    const t = Array.isArray(doc.document_translations)
+      ? doc.document_translations[0]
+      : doc.document_translations
+    if (!t) continue
+    const acts = Array.isArray(t.document_actions) ? t.document_actions : []
+    for (const a of acts) {
+      if (a.action_for === 'patient') {
+        actions.push({
+          id: a.id,
+          description: a.description,
+          category: a.category as TaskCategory,
+          documentName: doc.name,
+        })
+      }
+    }
+  }
+  return actions
+})
 
 /**
  * Returns all non-deleted documents for an episode, sorted chronologically
@@ -38,7 +87,7 @@ export const getEpisodeDocuments = cache(async (episodeId: string): Promise<Epis
   const { data } = await supabase
     .from('documents')
     .select(`
-      id, name, type, purpose, document_date, created_at, status,
+      id, name, type, purpose, document_date, source_hospital, created_at, status,
       document_translations (
         plain_language, what_it_means,
         document_actions ( id, description, category, action_for, phase_appears )
@@ -62,6 +111,7 @@ export const getEpisodeDocuments = cache(async (episodeId: string): Promise<Epis
       type: doc.type,
       purpose: doc.purpose,
       document_date: doc.document_date,
+      source_hospital: doc.source_hospital ?? null,
       created_at: doc.created_at,
       status: doc.status,
       translation: t
