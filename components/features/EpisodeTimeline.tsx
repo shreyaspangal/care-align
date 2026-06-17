@@ -39,6 +39,8 @@ export function EpisodeTimeline({ documents, viewerRole, onDelete }: EpisodeTime
         name: selected.name,
         type: selected.type,
         document_date: selected.document_date,
+        source_hospital: selected.source_hospital,
+        status: selected.status,
       }
     : null
 

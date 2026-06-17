@@ -11,16 +11,16 @@ type PatientTabNavProps = {
 
 const tabs = (patientId: string) => [
   {
-    label: 'Documents',
-    href: `/dashboard/${patientId}`,
-    icon: FileText,
-    isActive: (p: string) => !p.includes('/summary') && !p.endsWith('/tasks'),
-  },
-  {
     label: 'Summary',
     href: `/dashboard/${patientId}/summary`,
     icon: Sparkles,
     isActive: (p: string) => p.includes('/summary'),
+  },
+  {
+    label: 'Documents',
+    href: `/dashboard/${patientId}`,
+    icon: FileText,
+    isActive: (p: string) => !p.includes('/summary') && !p.endsWith('/tasks'),
   },
   {
     label: 'Tasks',
