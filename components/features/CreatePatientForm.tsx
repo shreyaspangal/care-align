@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from 'react'
 import { Loader2 } from 'lucide-react'
-import { createPatient } from '@/actions/create-patient'
+import type { CreatePatientState } from '@/actions/create-patient'
 import { CreatePatientSchema } from '@/lib/validation/schemas'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,8 +11,12 @@ import { cn } from '@/lib/utils'
 
 type FieldErrors = Partial<Record<'name' | 'dob' | 'gender' | 'admission_status', string>>
 
-export function CreatePatientForm() {
-  const [state, action, isPending] = useActionState(createPatient, null)
+type Props = {
+  onCreatePatient: (_prev: CreatePatientState, formData: FormData) => Promise<CreatePatientState>
+}
+
+export function CreatePatientForm({ onCreatePatient }: Props) {
+  const [state, action, isPending] = useActionState(onCreatePatient, null)
 
   const [name, setName] = useState('')
   const [dob, setDob] = useState('')

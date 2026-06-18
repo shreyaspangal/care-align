@@ -2,37 +2,59 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, CheckSquare } from 'lucide-react'
+import { FileText, Sparkles, CheckSquare } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 type PatientTabNavProps = {
   patientId: string
 }
 
+const tabs = (patientId: string) => [
+  {
+    label: 'Summary',
+    href: `/dashboard/${patientId}/summary`,
+    icon: Sparkles,
+    isActive: (p: string) => p.includes('/summary'),
+  },
+  {
+    label: 'Documents',
+    href: `/dashboard/${patientId}`,
+    icon: FileText,
+    isActive: (p: string) => !p.includes('/summary') && !p.endsWith('/tasks'),
+  },
+  {
+    label: 'Tasks',
+    href: `/dashboard/${patientId}/tasks`,
+    icon: CheckSquare,
+    isActive: (p: string) => p.endsWith('/tasks'),
+  },
+]
+
 export function PatientTabNav({ patientId }: PatientTabNavProps) {
-  const pathname = usePathname()
-  const isTasksActive = (pathname ?? '').endsWith('/tasks')
+  const pathname = usePathname() ?? ''
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background safe-bottom">
-      <div className="max-w-3xl mx-auto flex">
-        <Link
-          href={`/dashboard/${patientId}`}
-          className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-xs transition-colors min-h-[52px] justify-center ${
-            !isTasksActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <LayoutDashboard size={20} strokeWidth={!isTasksActive ? 2.5 : 1.75} />
-          <span className={!isTasksActive ? 'font-medium' : ''}>Overview</span>
-        </Link>
-        <Link
-          href={`/dashboard/${patientId}/tasks`}
-          className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-xs transition-colors min-h-[52px] justify-center ${
-            isTasksActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <CheckSquare size={20} strokeWidth={isTasksActive ? 2.5 : 1.75} />
-          <span className={isTasksActive ? 'font-medium' : ''}>Tasks</span>
-        </Link>
+    <nav className="border-b border-border">
+      <div className="flex px-4 max-w-3xl mx-auto">
+        {tabs(patientId).map(({ label, href, icon: Icon, isActive }) => {
+          const active = isActive(pathname)
+          return (
+            <Link
+              key={label}
+              href={href}
+              className={cn(
+                'inline-flex items-center gap-1.5 py-3 px-1 mr-5 text-sm border-b-2 transition-colors',
+                active
+                  ? 'border-brand-base text-brand-base font-medium'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              )}
+              style={{ transitionDuration: 'var(--duration-base)', transitionTimingFunction: 'var(--ease-hover)' }}
+            >
+              <Icon size={14} strokeWidth={active ? 2.5 : 1.75} />
+              {label}
+            </Link>
+          )
+        })}
       </div>
     </nav>
   )

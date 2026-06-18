@@ -8,18 +8,16 @@ import { Label } from '@/components/ui/label'
 import { DocumentTypeTag } from '@/components/primitives/DocumentTypeTag'
 import { DOCUMENT_TYPES, DOCUMENT_TYPE_LABELS } from '@/lib/validation/schemas'
 import type { DocumentType } from '@/lib/types/domain'
-import {
-  updateDocumentClassification,
-  type ClassificationFields,
-} from '@/actions/update-document-classification'
+import type { ClassificationFields, UpdateClassificationResult } from '@/actions/update-document-classification'
 
 type Props = {
   documentId: string
   current: ClassificationFields
   onSaved?: (updated: ClassificationFields) => void
+  onUpdateClassification: (documentId: string, fields: ClassificationFields) => Promise<UpdateClassificationResult>
 }
 
-export function DocumentClassificationEditor({ documentId, current, onSaved }: Props) {
+export function DocumentClassificationEditor({ documentId, current, onSaved, onUpdateClassification }: Props) {
   const [isEditing, setIsEditing] = useState(false)
   const [fields, setFields] = useState<ClassificationFields>(current)
   const [error, setError] = useState<string | null>(null)
@@ -40,7 +38,7 @@ export function DocumentClassificationEditor({ documentId, current, onSaved }: P
   function handleSave() {
     setError(null)
     startTransition(async () => {
-      const result = await updateDocumentClassification(documentId, fields)
+      const result = await onUpdateClassification(documentId, fields)
       if (result.ok) {
         onSaved?.(fields)
         setIsEditing(false)

@@ -43,8 +43,13 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Rule 1: no session → redirect to /login (except auth pages themselves)
-  if (!user && !pathname.startsWith('/login') && !pathname.startsWith('/register')) {
+  // Rule 1: no session → redirect to /login (except auth pages and the public join page)
+  if (
+    !user &&
+    !pathname.startsWith('/login') &&
+    !pathname.startsWith('/register') &&
+    !pathname.startsWith('/join')
+  ) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 

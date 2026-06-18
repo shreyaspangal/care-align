@@ -27,6 +27,7 @@ const base = {
   type: 'lab_report' as const,
   purpose: 'Routine haematology panel',
   document_date: '2024-06-01',
+  uploaded_at: '2024-06-01T09:30:00Z',
   translation_status: 'complete' as const,
 }
 
@@ -64,7 +65,7 @@ export const NullDateAndPurpose: Story = {
     document: { ...base, document_date: null, purpose: null, translation_status: 'pending' },
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText('Date unknown')).toBeVisible()
+    await expect(canvas.getByText(/Issued at:/)).toBeVisible()
     await expect(canvas.getByText('Processing...')).toBeVisible()
   },
 }

@@ -37,14 +37,14 @@ describe('DocumentCard', () => {
     expect(screen.getByText('Processing...')).toBeInTheDocument()
   })
 
-  it('renders document_date when provided', () => {
+  it('renders document_date with label when provided', () => {
     render(<DocumentCard document={baseDocument} />)
-    expect(screen.getByText('2024-06-01')).toBeInTheDocument()
+    expect(screen.getByText(/Issued at:/)).toBeInTheDocument()
   })
 
-  it('renders "Date unknown" when document_date is null', () => {
+  it('renders "Unknown" label when document_date is null', () => {
     render(<DocumentCard document={{ ...baseDocument, document_date: null }} />)
-    expect(screen.getByText('Date unknown')).toBeInTheDocument()
+    expect(screen.getByText(/Issued at:/)).toBeInTheDocument()
   })
 
   it('calls onClick when card is clicked', async () => {

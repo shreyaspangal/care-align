@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "type": "module",
   "private": true,
+  "types": ".design-sync/ds-entry.d.ts",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks",
     "dev": "next dev",
@@ -30,8 +31,10 @@
     "@upstash/redis": "^1.38.0",
     "@vercel/blob": "^2.4.0",
     "ai": "^6.0.198",
+    "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
     "lucide-react": "^1.17.0",
     "next": "16.2.6",
     "next-themes": "^0.4.6",

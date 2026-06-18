@@ -18,8 +18,8 @@ export function PatientSummaryPanel({ episodeStatus, summary }: PatientSummaryPa
         </p>
         <div className="space-y-3">
           <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center shrink-0">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-green-600"><polyline points="20 6 9 17 4 12"/></svg>
+            <div className="w-7 h-7 rounded-full bg-primary/30 flex items-center justify-center shrink-0">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-green-300"><polyline points="20 6 9 17 4 12"/></svg>
             </div>
             <p className="text-sm">Your care episode is open</p>
           </div>

@@ -33,6 +33,8 @@ const translatedDoc: TimelineDocument = {
   type: 'lab_report',
   purpose: 'Routine blood count check during admission',
   document_date: '2026-06-01',
+  source_hospital: 'Apollo Hospital',
+  created_at: '2026-06-01T09:30:00Z',
   status: 'translated',
   translation: {
     plain_language:
@@ -57,6 +59,8 @@ const pendingDoc: TimelineDocument = {
   type: 'prescription',
   purpose: null,
   document_date: null,
+  source_hospital: null,
+  created_at: '2026-06-02T11:00:00Z',
   status: 'pending_classification',
   translation: null,
 }
@@ -67,6 +71,8 @@ const classifyingDoc: TimelineDocument = {
   type: 'discharge_summary',
   purpose: null,
   document_date: '2026-06-10',
+  source_hospital: null,
+  created_at: '2026-06-10T15:45:00Z',
   status: 'classified',
   translation: null,
 }
@@ -77,6 +83,8 @@ const failedDoc: TimelineDocument = {
   type: 'bill',
   purpose: null,
   document_date: '2026-06-12',
+  source_hospital: null,
+  created_at: '2026-06-12T08:20:00Z',
   status: 'failed',
   translation: null,
 }

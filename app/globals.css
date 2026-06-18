@@ -5,8 +5,37 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-    --font-heading: var(--font-sans);
+    --font-heading: var(--font-display);
     --font-sans: var(--font-sans);
+
+    /* ── Semantic color tokens → Tailwind utilities ──────────────────────────
+       Naming convention: --[context]-[role] where role is one of:
+         base    → solid fill (buttons, icons, strong emphasis)
+         on      → text/icon on top of a `base` fill
+         tint    → very light background wash
+         border  → borders and dividers in this context
+         surface → page-level background tint (larger areas than tint)
+       Adding a new theme: redefine these vars under a [data-theme="x"] selector.
+       Adding a new role (doctor, admin): follow the same suffix pattern.
+    ── */
+    --color-brand-base:       var(--brand-base);
+    --color-brand-on:         var(--brand-on);
+    --color-brand-tint:       var(--brand-tint);
+    --color-brand-border:     var(--brand-border);
+    --color-patient-base:     var(--patient-base);
+    --color-patient-on:       var(--patient-on);
+    --color-patient-tint:     var(--patient-tint);
+    --color-patient-surface:  var(--patient-surface);
+    --color-ai-base:          var(--ai-base);
+    --color-ai-tint:          var(--ai-tint);
+    --color-success-base:     var(--success-base);
+    --color-success-tint:     var(--success-tint);
+
+    /* ── Logo font sizes (no arbitrary px values in components) ── */
+    --text-2xs:    0.625rem;   /* 10px — chips, micro-labels  */
+    --text-logo-sm: 0.875rem;  /* 14px — logo wordmark sm     */
+    --text-logo-md: 1.0625rem; /* 17px — logo wordmark md     */
+    --text-logo-lg: 1.375rem;  /* 22px — logo wordmark lg     */
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -48,38 +77,72 @@
 }
 
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
+    /* ── Shadcn base tokens (updated) ── */
+    --background: oklch(0.99 0.006 90);
+    --foreground: oklch(0.13 0.01 250);
     --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
+    --card-foreground: oklch(0.13 0.01 250);
     --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.13 0.01 250);
+    --primary: var(--brand-base);
+    --primary-foreground: var(--brand-on);
+    --secondary: oklch(0.96 0.004 90);
+    --secondary-foreground: oklch(0.13 0.01 250);
+    --muted: oklch(0.96 0.004 90);
+    --muted-foreground: oklch(0.52 0.008 250);
+    --accent: oklch(0.96 0.025 183);
+    --accent-foreground: oklch(0.44 0.11 183);
     --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    --border: oklch(0.91 0.006 90);
+    --input: oklch(0.91 0.006 90);
+    --ring: oklch(0.44 0.11 183);
+    --chart-1: oklch(0.44 0.11 183);
+    --chart-2: oklch(0.55 0.09 42);
+    --chart-3: oklch(0.52 0.10 258);
+    --chart-4: oklch(0.52 0.13 155);
+    --chart-5: oklch(0.577 0.245 27.325);
+    --radius: 0.75rem;
+    --sidebar: oklch(0.97 0.006 90);
+    --sidebar-foreground: oklch(0.13 0.01 250);
+    --sidebar-primary: oklch(0.44 0.11 183);
+    --sidebar-primary-foreground: oklch(0.98 0.01 183);
+    --sidebar-accent: oklch(0.96 0.025 183);
+    --sidebar-accent-foreground: oklch(0.44 0.11 183);
+    --sidebar-border: oklch(0.91 0.006 90);
+    --sidebar-ring: oklch(0.44 0.11 183);
+
+    /* ── Brand tokens (coordinator role) ── */
+    --brand-base:   oklch(0.44 0.11 183);
+    --brand-on:     oklch(0.98 0.01 183);
+    --brand-tint:   oklch(0.96 0.025 183);
+    --brand-border: oklch(0.88 0.055 183);
+
+    /* ── Patient role tokens ── */
+    --patient-base:    oklch(0.55 0.09 42);
+    --patient-on:      oklch(0.98 0.01 42);
+    --patient-tint:    oklch(0.94 0.04 42);
+    --patient-surface: oklch(0.98 0.012 42);
+
+    /* ── AI processing tokens ── */
+    --ai-base: oklch(0.52 0.10 258);
+    --ai-tint: oklch(0.94 0.04 258);
+
+    /* ── Status tokens ── */
+    --success-base: oklch(0.52 0.13 155);
+    --success-tint: oklch(0.94 0.04 155);
+
+    /* ── Shadow scale ── */
+    --shadow-card:     0 1px 3px oklch(0 0 0 / 0.06), 0 1px 2px oklch(0 0 0 / 0.04);
+    --shadow-elevated: 0 4px 16px oklch(0 0 0 / 0.08), 0 1px 4px oklch(0 0 0 / 0.04);
+    --shadow-sheet:    0 20px 60px oklch(0 0 0 / 0.12);
+
+    /* ── Motion tokens ── */
+    --ease-out-quart:    cubic-bezier(0.165, 0.84, 0.44, 1);
+    --ease-in-out-cubic: cubic-bezier(0.645, 0.045, 0.355, 1);
+    --ease-hover:        cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --duration-fast:  120ms;
+    --duration-base:  200ms;
+    --duration-slow:  350ms;
 }
 
 .dark {
@@ -89,41 +152,98 @@
     --card-foreground: oklch(0.985 0 0);
     --popover: oklch(0.205 0 0);
     --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
+    --primary: var(--brand-base);
+    --primary-foreground: var(--brand-on);
     --secondary: oklch(0.269 0 0);
     --secondary-foreground: oklch(0.985 0 0);
     --muted: oklch(0.269 0 0);
     --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
+    --accent: oklch(0.22 0.05 183);
+    --accent-foreground: oklch(0.72 0.10 183);
     --destructive: oklch(0.704 0.191 22.216);
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
+    --ring: oklch(0.65 0.11 183);
+    --chart-1: oklch(0.65 0.11 183);
+    --chart-2: oklch(0.70 0.09 42);
+    --chart-3: oklch(0.65 0.10 258);
+    --chart-4: oklch(0.65 0.13 155);
+    --chart-5: oklch(0.704 0.191 22.216);
     --sidebar: oklch(0.205 0 0);
     --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.65 0.11 183);
+    --sidebar-primary-foreground: oklch(0.12 0.02 183);
+    --sidebar-accent: oklch(0.22 0.05 183);
+    --sidebar-accent-foreground: oklch(0.72 0.10 183);
     --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    --sidebar-ring: oklch(0.65 0.11 183);
+
+    /* Brand tokens — lighter for dark mode */
+    --brand-base:   oklch(0.65 0.11 183);
+    --brand-on:     oklch(0.12 0.02 183);
+    --brand-tint:   oklch(0.22 0.05 183);
+    --brand-border: oklch(0.30 0.08 183);
+
+    --patient-base:    oklch(0.70 0.09 42);
+    --patient-on:      oklch(0.12 0.02 42);
+    --patient-tint:    oklch(0.22 0.05 42);
+    --patient-surface: oklch(0.18 0.04 42);
+
+    --ai-base: oklch(0.65 0.10 258);
+    --ai-tint: oklch(0.22 0.05 258);
+
+    --success-base: oklch(0.65 0.13 155);
+    --success-tint: oklch(0.20 0.05 155);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    }
+  }
   body {
     @apply bg-background text-foreground;
-    }
+  }
   html {
     @apply font-sans;
-    }
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+  }
+}
+
+/* ── Reusable visual utilities ─────────────────────────────────────────────── */
+
+/* iOS squircle shape — used for app icons, clay assets */
+.squircle {
+  border-radius: 25.3%;
+}
+
+/* Clay material — teal variant. Matte radial gradient with specular highlight.
+   Use on a .squircle div or any container for the Clay-inspired app icon look. */
+.clay-teal {
+  background: radial-gradient(
+    ellipse at 38% 32%,
+    oklch(0.72 0.09 183) 0%,
+    oklch(0.52 0.12 183) 38%,
+    oklch(0.38 0.11 183) 68%,
+    oklch(0.28 0.09 183) 100%
+  );
+  box-shadow:
+    0 16px 48px oklch(0.44 0.11 183 / 0.40),
+    0 4px 12px oklch(0 0 0 / 0.22),
+    inset 0 1px 0 oklch(1 0 0 / 0.18),
+    inset 0 -2px 6px oklch(0 0 0 / 0.18);
+}
+
+/* Gentle float — used on clay icons and hero assets */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-6px); }
+}
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-float { animation: none; }
 }

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { createPatient } from '@/actions/create-patient'
 import { CreatePatientForm } from '@/components/features/CreatePatientForm'
 import { ArrowLeft } from 'lucide-react'
 
@@ -14,7 +15,7 @@ export default async function NewPatientPage() {
     <div className="max-w-md mx-auto px-4 py-8 space-y-6">
       <Link
         href="/dashboard"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        className="lg:hidden inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft className="w-3.5 h-3.5" />
         Back to patients
@@ -27,7 +28,7 @@ export default async function NewPatientPage() {
         </p>
       </div>
 
-      <CreatePatientForm />
+      <CreatePatientForm onCreatePatient={createPatient} />
     </div>
   )
 }

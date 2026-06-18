@@ -7,6 +7,8 @@ const doc = {
   name: 'Blood Test Report — CBC Panel',
   type: 'lab_report' as const,
   document_date: '2024-03-15',
+  source_hospital: 'Apollo Hospital, Bannerghatta',
+  status: 'translated' as const,
 }
 
 const translation = {
@@ -20,6 +22,13 @@ const translation = {
       description: 'Collect follow-up blood test report from ward nurse on Wednesday',
       category: 'test_results' as const,
       action_for: 'coordinator' as const,
+      phase_appears: 'during_care' as const,
+    },
+    {
+      id: 'a2',
+      description: 'Ask doctor about the white blood cell count at next visit',
+      category: 'doctor_visit' as const,
+      action_for: 'patient' as const,
       phase_appears: 'during_care' as const,
     },
   ],
@@ -43,12 +52,14 @@ type Story = StoryObj<typeof meta>
 
 export const CoordinatorView: Story = {
   play: async () => {
-    // SheetContent renders in a Radix portal on document.body, outside canvas.
     const body = document.body
     await expect(body.querySelector('[data-slot="sheet-title"]')).toBeTruthy()
     await expect(body.textContent).toContain('Blood Test Report — CBC Panel')
+    await expect(body.textContent).toContain('Apollo Hospital')
     await expect(body.textContent).toContain('What this document says')
     await expect(body.textContent).toContain('Actions required')
+    await expect(body.textContent).toContain('Coordinator')
+    await expect(body.textContent).toContain('Patient')
   },
 }
 
@@ -57,16 +68,44 @@ export const PatientView: Story = {
   play: async () => {
     const body = document.body
     await expect(body.textContent).toContain('What this document says')
-    // Actions section hidden from patient
+    await expect(body.textContent).toContain('What you need to do')
     await expect(body.textContent).not.toContain('Actions required')
   },
 }
 
-export const Loading: Story = {
-  args: { translation: null },
+export const Pending: Story = {
+  name: 'Processing (pending)',
+  args: {
+    document: { ...doc, status: 'pending_classification' as const },
+    translation: null,
+  },
   play: async () => {
     const body = document.body
-    await expect(body.textContent).toContain('Blood Test Report — CBC Panel')
+    await expect(body.textContent).toContain('Reading document')
+  },
+}
+
+export const Translating: Story = {
+  name: 'Processing (classifying)',
+  args: {
+    document: { ...doc, status: 'classified' as const },
+    translation: null,
+  },
+  play: async () => {
+    const body = document.body
+    await expect(body.textContent).toContain('Translating')
+  },
+}
+
+export const Failed: Story = {
+  name: 'Failed to process',
+  args: {
+    document: { ...doc, status: 'failed' as const },
+    translation: null,
+  },
+  play: async () => {
+    const body = document.body
+    await expect(body.textContent).toContain('Could not process this document')
   },
 }
 

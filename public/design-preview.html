@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CareAlign — Design System Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Proposed tokens ── */
+    :root {
+      /* Brand */
+      --brand:            oklch(0.44 0.11 183);
+      --brand-foreground: oklch(0.98 0.01 183);
+      --brand-subtle:     oklch(0.96 0.025 183);
+      --brand-muted:      oklch(0.88 0.055 183);
+
+      /* Background */
+      --background:       oklch(0.99 0.006 90);
+      --foreground:       oklch(0.13 0.01 250);
+      --muted:            oklch(0.96 0.004 90);
+      --muted-fg:         oklch(0.52 0.01 250);
+      --border:           oklch(0.91 0.006 90);
+      --card:             oklch(1 0 0);
+
+      /* Semantic */
+      --patient-accent:   oklch(0.55 0.09 42);
+      --ai-accent:        oklch(0.52 0.10 258);
+      --success:          oklch(0.52 0.13 155);
+      --destructive:      oklch(0.577 0.245 27.325);
+
+      /* Type */
+      --font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
+      --font-body:    'Geist', system-ui, sans-serif;
+
+      /* Radius */
+      --radius: 0.75rem;
+
+      /* Shadow */
+      --shadow-card:     0 1px 3px oklch(0 0 0 / 0.06), 0 1px 2px oklch(0 0 0 / 0.04);
+      --shadow-elevated: 0 4px 16px oklch(0 0 0 / 0.08), 0 1px 4px oklch(0 0 0 / 0.04);
+
+      /* Motion */
+      --ease-out-quart:    cubic-bezier(0.165, 0.84, 0.44, 1);
+      --ease-in-out-cubic: cubic-bezier(0.645, 0.045, 0.355, 1);
+      --duration-fast:  120ms;
+      --duration-base:  200ms;
+      --duration-slow:  350ms;
+    }
+
+    body {
+      font-family: var(--font-display);
+      background: var(--background);
+      color: var(--foreground);
+      padding: 48px 32px;
+      max-width: 900px;
+      margin: 0 auto;
+      line-height: 1.5;
+    }
+
+    h1 { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-fg); margin-bottom: 40px; }
+    h2 { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-fg); margin-bottom: 16px; margin-top: 48px; }
+    hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+
+    /* ── Logo section ── */
+    .logo-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+    }
+
+    .logo-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px 24px;
+      box-shadow: var(--shadow-card);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .logo-card-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted-fg);
+      margin-top: 4px;
+    }
+
+    .logo-card-desc {
+      font-size: 12px;
+      color: var(--muted-fg);
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    .logo-dark {
+      background: oklch(0.13 0.01 250);
+      border-color: oklch(0.22 0.01 250);
+    }
+
+    .logo-sizes {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+    }
+
+    .logo-size-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-size-label {
+      font-size: 10px;
+      color: var(--muted-fg);
+      width: 28px;
+      flex-shrink: 0;
+    }
+
+    /* ── Direction A: Wordmark split ── */
+    .wordmark-a {
+      font-family: var(--font-display);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      white-space: nowrap;
+    }
+    .wordmark-a .care { color: var(--brand); }
+    .wordmark-a .align { color: var(--foreground); }
+
+    /* ── Direction B: Mark + wordmark ── */
+    .logo-b-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55em;
+      white-space: nowrap;
+    }
+
+    .mark-b {
+      flex-shrink: 0;
+    }
+
+    .wordmark-b {
+      font-family: var(--font-display);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--foreground);
+    }
+
+    /* ── Direction C: Arc mark ── */
+    .logo-c-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5em;
+      white-space: nowrap;
+    }
+
+    .wordmark-c {
+      font-family: var(--font-display);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--foreground);
+    }
+
+    /* ── Color palette ── */
+    .swatch-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 12px;
+    }
+
+    .swatch {
+      border-radius: calc(var(--radius) * 0.8);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-card);
+    }
+
+    .swatch-color {
+      height: 56px;
+    }
+
+    .swatch-info {
+      padding: 10px 12px;
+      background: var(--card);
+    }
+
+    .swatch-name {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--foreground);
+    }
+
+    .swatch-value {
+      font-size: 10px;
+      color: var(--muted-fg);
+      margin-top: 2px;
+      font-family: monospace;
+    }
+
+    /* ── Typography scale ── */
+    .type-row {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .type-meta {
+      font-size: 10px;
+      color: var(--muted-fg);
+      width: 80px;
+      flex-shrink: 0;
+      font-family: monospace;
+    }
+
+    /* ── Coordinator vs Patient header preview ── */
+    .shell-preview {
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-card);
+      margin-bottom: 16px;
+    }
+
+    .shell-header {
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+    }
+
+    .shell-header-coord {
+      background: white;
+      border-bottom: 2px solid var(--brand);
+    }
+
+    .shell-header-patient {
+      background: oklch(0.98 0.012 42);
+      border-bottom: 2px solid var(--patient-accent);
+    }
+
+    .shell-role-chip {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 100px;
+    }
+
+    .chip-coord {
+      background: var(--brand-subtle);
+      color: var(--brand);
+    }
+
+    .chip-patient {
+      background: oklch(0.94 0.04 42);
+      color: var(--patient-accent);
+    }
+
+    .shell-signout {
+      font-size: 12px;
+      color: var(--muted-fg);
+    }
+
+    .shell-body {
+      background: var(--background);
+      padding: 20px;
+      min-height: 80px;
+    }
+
+    /* ── Motion demo ── */
+    .motion-demo {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .motion-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--duration-base) var(--ease-out-quart);
+      box-shadow: var(--shadow-card);
+      user-select: none;
+    }
+
+    .motion-box:hover {
+      background: var(--brand-subtle);
+      border-color: var(--brand-muted);
+      color: var(--brand);
+      box-shadow: var(--shadow-elevated);
+      transform: translateY(-2px);
+    }
+
+    .motion-box:active {
+      transform: scale(0.97) translateY(0);
+      transition-duration: var(--duration-fast);
+    }
+
+    .motion-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 100px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--duration-base) var(--ease-out-quart);
+    }
+
+    .badge-translating {
+      background: oklch(0.92 0.04 258);
+      color: var(--ai-accent);
+    }
+
+    .badge-complete {
+      background: oklch(0.92 0.04 155);
+      color: var(--success);
+    }
+
+    /* ── Shadow demo ── */
+    .shadow-demo {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .shadow-card-demo {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    /* ── AI accent demo ── */
+    .ai-strip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 100px;
+      background: oklch(0.94 0.04 258);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--ai-accent);
+    }
+
+    .ai-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--ai-accent);
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.75); }
+    }
+
+    .section-note {
+      font-size: 12px;
+      color: var(--muted-fg);
+      margin-bottom: 16px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>CareAlign — Design System Preview</h1>
+
+  <!-- ── LOGO DIRECTIONS ── -->
+  <h2>Logo — Three Directions</h2>
+  <p class="section-note">All three use Plus Jakarta Sans 700. Review at multiple sizes. Pick one before implementation begins.</p>
+
+  <div class="logo-grid">
+
+    <!-- Direction A -->
+    <div class="logo-card">
+      <div class="logo-card-label">A — Wordmark split</div>
+      <div class="logo-sizes">
+        <div class="logo-size-row">
+          <span class="logo-size-label">32px</span>
+          <span class="wordmark-a" style="font-size:32px"><span class="care">Care</span><span class="align">Align</span></span>
+        </div>
+        <div class="logo-size-row">
+          <span class="logo-size-label">20px</span>
+          <span class="wordmark-a" style="font-size:20px"><span class="care">Care</span><span class="align">Align</span></span>
+        </div>
+        <div class="logo-size-row">
+          <span class="logo-size-label">14px</span>
+          <span class="wordmark-a" style="font-size:14px"><span class="care">Care</span><span class="align">Align</span></span>
+        </div>
+      </div>
+      <p class="logo-card-desc">No icon. "Care" in brand teal, "Align" in near-black. Instant legibility at any size.</p>
+    </div>
+
+    <!-- Direction B -->
+    <div class="logo-card">
+      <div class="logo-card-label">B — Align mark + wordmark</div>
+      <div class="logo-sizes">
+        <div class="logo-size-row">
+          <span class="logo-size-label">32px</span>
+          <span class="logo-b-wrap" style="font-size:32px">
+            <svg class="mark-b" width="28" height="28" viewBox="0 0 28 28" fill="none">
+              <rect x="3" y="8" width="22" height="2.5" rx="1.25" fill="oklch(0.44 0.11 183)"/>
+              <rect x="3" y="13.75" width="16" height="2.5" rx="1.25" fill="oklch(0.44 0.11 183)" opacity="0.6"/>
+              <rect x="3" y="19.5" width="10" height="2.5" rx="1.25" fill="oklch(0.44 0.11 183)" opacity="0.3"/>
+            </svg>
+            <span class="wordmark-b">CareAlign</span>
+          </span>
+        </div>
+        <div class="logo-size-row">
+          <span class="logo-size-label">20px</span>
+          <span class="logo-b-wrap" style="font-size:20px">
+            <svg class="mark-b" width="18" height="18" viewBox="0 0 28 28" fill="none">
+              <rect x="3" y="8" width="22" height="2.5" rx="1.25" fill="oklch(0.44 0.11 183)"/>
+              <rect x="3" y="13.75" width="16" height="2.5" rx="1.25" fill="oklch(0.44 0.11 183)" opacity="0.6"/>
+              <rect x="3" y="19.5" width="10" height="2.5" rx="1.25" fill="oklch(0.44 0.11 183)" opacity="0.3"/>
+            </svg>
+            <span class="wordmark-b">CareAlign</span>
+          </span>
+        </div>
+        <div class="logo-size-row">
+          <span class="logo-size-label">14px</span>
+          <span class="logo-b-wrap" style="font-size:14px">
+            <svg class="mark-b" width="13" height="13" viewBox="0 0 28 28" fill="none">
+              <rect x="3" y="8" width="22" height="2.5" rx="1.25" fill="oklch(0.44 0.11 183)"/>
+              <rect x="3" y="13.75" width="16" height="2.5" rx="1.25" fill="oklch(0.44 0.11 183)" opacity="0.6"/>
+              <rect x="3" y="19.5" width="10" height="2.5" rx="1.25" fill="oklch(0.44 0.11 183)" opacity="0.3"/>
+            </svg>
+            <span class="wordmark-b">CareAlign</span>
+          </span>
+        </div>
+      </div>
+      <p class="logo-card-desc">3 descending lines — documents being sorted/aligned. Icon doubles as favicon. Teal fade suggests priority ordering.</p>
+    </div>
+
+    <!-- Direction C -->
+    <div class="logo-card">
+      <div class="logo-card-label">C — Arc mark + wordmark</div>
+      <div class="logo-sizes">
+        <div class="logo-size-row">
+          <span class="logo-size-label">32px</span>
+          <span class="logo-c-wrap" style="font-size:32px">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+              <path d="M22 14C22 18.418 18.418 22 14 22C9.582 22 6 18.418 6 14C6 9.582 9.582 6 14 6" stroke="oklch(0.44 0.11 183)" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M14 6L17.5 9.5" stroke="oklch(0.44 0.11 183)" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M14 6L17.5 2.5" stroke="oklch(0.44 0.11 183)" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+            <span class="wordmark-c">CareAlign</span>
+          </span>
+        </div>
+        <div class="logo-size-row">
+          <span class="logo-size-label">20px</span>
+          <span class="logo-c-wrap" style="font-size:20px">
+            <svg width="18" height="18" viewBox="0 0 28 28" fill="none">
+              <path d="M22 14C22 18.418 18.418 22 14 22C9.582 22 6 18.418 6 14C6 9.582 9.582 6 14 6" stroke="oklch(0.44 0.11 183)" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M14 6L17.5 9.5" stroke="oklch(0.44 0.11 183)" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M14 6L17.5 2.5" stroke="oklch(0.44 0.11 183)" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+            <span class="wordmark-c">CareAlign</span>
+          </span>
+        </div>
+        <div class="logo-size-row">
+          <span class="logo-size-label">14px</span>
+          <span class="logo-c-wrap" style="font-size:14px">
+            <svg width="13" height="13" viewBox="0 0 28 28" fill="none">
+              <path d="M22 14C22 18.418 18.418 22 14 22C9.582 22 6 18.418 6 14C6 9.582 9.582 6 14 6" stroke="oklch(0.44 0.11 183)" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M14 6L17.5 9.5" stroke="oklch(0.44 0.11 183)" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M14 6L17.5 2.5" stroke="oklch(0.44 0.11 183)" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+            <span class="wordmark-c">CareAlign</span>
+          </span>
+        </div>
+      </div>
+      <p class="logo-card-desc">Arc = C (care) + open circle = something incomplete being completed. Arrow on the arc = direction, alignment. Most abstract of the three.</p>
+    </div>
+  </div>
+
+  <!-- Logo on dark background -->
+  <h2 style="margin-top:32px">Logo on dark background</h2>
+  <div class="logo-grid">
+    <div class="logo-card logo-dark">
+      <span class="wordmark-a" style="font-size:28px; color:white"><span class="care">Care</span><span style="color:white">Align</span></span>
+      <p class="logo-card-desc" style="color:oklch(0.6 0 0)">A — dark bg</p>
+    </div>
+    <div class="logo-card logo-dark">
+      <span class="logo-b-wrap" style="font-size:28px">
+        <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
+          <rect x="3" y="8" width="22" height="2.5" rx="1.25" fill="oklch(0.65 0.11 183)"/>
+          <rect x="3" y="13.75" width="16" height="2.5" rx="1.25" fill="oklch(0.65 0.11 183)" opacity="0.7"/>
+          <rect x="3" y="19.5" width="10" height="2.5" rx="1.25" fill="oklch(0.65 0.11 183)" opacity="0.4"/>
+        </svg>
+        <span style="font-family:var(--font-display);font-weight:700;letter-spacing:-0.02em;color:white">CareAlign</span>
+      </span>
+      <p class="logo-card-desc" style="color:oklch(0.6 0 0)">B — dark bg</p>
+    </div>
+    <div class="logo-card logo-dark">
+      <span class="logo-c-wrap" style="font-size:28px">
+        <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
+          <path d="M22 14C22 18.418 18.418 22 14 22C9.582 22 6 18.418 6 14C6 9.582 9.582 6 14 6" stroke="oklch(0.65 0.11 183)" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M14 6L17.5 9.5" stroke="oklch(0.65 0.11 183)" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M14 6L17.5 2.5" stroke="oklch(0.65 0.11 183)" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+        <span style="font-family:var(--font-display);font-weight:700;letter-spacing:-0.02em;color:white">CareAlign</span>
+      </span>
+      <p class="logo-card-desc" style="color:oklch(0.6 0 0)">C — dark bg</p>
+    </div>
+  </div>
+
+  <hr />
+
+  <!-- ── COLOR PALETTE ── -->
+  <h2>Color Palette</h2>
+  <p class="section-note">Current app: every token is <code>oklch(X 0 0)</code> — zero chroma. Proposed: brand teal as primary, warm cream background tint, semantic role colors.</p>
+
+  <div class="swatch-grid">
+    <div class="swatch">
+      <div class="swatch-color" style="background:oklch(0.44 0.11 183)"></div>
+      <div class="swatch-info"><div class="swatch-name">Brand</div><div class="swatch-value">oklch(0.44 0.11 183)</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:oklch(0.96 0.025 183)"></div>
+      <div class="swatch-info"><div class="swatch-name">Brand Subtle</div><div class="swatch-value">oklch(0.96 0.025 183)</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:oklch(0.88 0.055 183)"></div>
+      <div class="swatch-info"><div class="swatch-name">Brand Muted</div><div class="swatch-value">oklch(0.88 0.055 183)</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:oklch(0.99 0.006 90); border-bottom:1px solid oklch(0.91 0.006 90)"></div>
+      <div class="swatch-info"><div class="swatch-name">Background</div><div class="swatch-value">oklch(0.99 0.006 90)</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:oklch(0.55 0.09 42)"></div>
+      <div class="swatch-info"><div class="swatch-name">Patient Accent</div><div class="swatch-value">oklch(0.55 0.09 42)</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:oklch(0.94 0.04 42)"></div>
+      <div class="swatch-info"><div class="swatch-name">Patient Subtle</div><div class="swatch-value">oklch(0.94 0.04 42)</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:oklch(0.52 0.10 258)"></div>
+      <div class="swatch-info"><div class="swatch-name">AI Accent</div><div class="swatch-value">oklch(0.52 0.10 258)</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:oklch(0.94 0.04 258)"></div>
+      <div class="swatch-info"><div class="swatch-name">AI Subtle</div><div class="swatch-value">oklch(0.94 0.04 258)</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:oklch(0.52 0.13 155)"></div>
+      <div class="swatch-info"><div class="swatch-name">Success</div><div class="swatch-value">oklch(0.52 0.13 155)</div></div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:oklch(0.577 0.245 27.325)"></div>
+      <div class="swatch-info"><div class="swatch-name">Destructive</div><div class="swatch-value">existing</div></div>
+    </div>
+  </div>
+
+  <hr />
+
+  <!-- ── ROLE HEADERS ── -->
+  <h2>Role-Differentiated Headers</h2>
+  <p class="section-note">Same layout, different emotional temperature. Coordinator = teal precision. Patient = warm amber.</p>
+
+  <div class="shell-preview">
+    <div class="shell-header shell-header-coord">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span class="wordmark-a" style="font-size:17px"><span class="care">Care</span><span class="align">Align</span></span>
+        <span class="shell-role-chip chip-coord">Coordinator</span>
+      </div>
+      <span class="shell-signout">Sign out</span>
+    </div>
+    <div class="shell-body">
+      <p style="font-size:12px;color:var(--muted-fg)">Coordinator view — teal border-bottom, teal role chip</p>
+    </div>
+  </div>
+
+  <div class="shell-preview">
+    <div class="shell-header shell-header-patient">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span class="wordmark-a" style="font-size:17px"><span class="care">Care</span><span class="align">Align</span></span>
+        <span class="shell-role-chip chip-patient">Your care</span>
+      </div>
+      <span class="shell-signout">Sign out</span>
+    </div>
+    <div class="shell-body" style="background:oklch(0.99 0.008 42)">
+      <p style="font-size:12px;color:var(--muted-fg)">Patient view — warm amber background tint, amber border-bottom, amber role chip</p>
+    </div>
+  </div>
+
+  <hr />
+
+  <!-- ── TYPOGRAPHY ── -->
+  <h2>Typography Scale</h2>
+  <p class="section-note">Plus Jakarta Sans for display and headings. Geist (already loaded) for body and UI labels.</p>
+
+  <div>
+    <div class="type-row">
+      <span class="type-meta">2xl / 24px</span>
+      <span style="font-size:24px;font-weight:700;letter-spacing:-0.02em">Sign in to CareAlign</span>
+    </div>
+    <div class="type-row">
+      <span class="type-meta">xl / 20px</span>
+      <span style="font-size:20px;font-weight:600;letter-spacing:-0.015em">Your patients</span>
+    </div>
+    <div class="type-row">
+      <span class="type-meta">lg / 18px</span>
+      <span style="font-size:18px;font-weight:600;letter-spacing:-0.01em">Active episode</span>
+    </div>
+    <div class="type-row">
+      <span class="type-meta">base / 16px</span>
+      <span style="font-size:16px;font-weight:400">Patient is currently admitted. 3 documents processed.</span>
+    </div>
+    <div class="type-row">
+      <span class="type-meta">sm / 14px</span>
+      <span style="font-size:14px;font-weight:400;color:var(--muted-fg)">DOB 1 Jan 1990 · Admitted</span>
+    </div>
+    <div class="type-row">
+      <span class="type-meta">xs / 12px</span>
+      <span style="font-size:12px;font-weight:500;color:var(--muted-fg);letter-spacing:0.01em">PDF · 2.4 MB · Uploaded 3 min ago</span>
+    </div>
+  </div>
+
+  <hr />
+
+  <!-- ── SHADOWS ── -->
+  <h2>Shadow Scale</h2>
+  <div class="shadow-demo">
+    <div class="shadow-card-demo" style="box-shadow:0 1px 3px oklch(0 0 0 / 0.06), 0 1px 2px oklch(0 0 0 / 0.04)">
+      <div style="font-size:11px;color:var(--muted-fg);margin-bottom:4px">shadow-card</div>
+      Patient list rows, document cards
+    </div>
+    <div class="shadow-card-demo" style="box-shadow:0 4px 16px oklch(0 0 0 / 0.08), 0 1px 4px oklch(0 0 0 / 0.04)">
+      <div style="font-size:11px;color:var(--muted-fg);margin-bottom:4px">shadow-elevated</div>
+      Dropdowns, popovers, focused cards
+    </div>
+    <div class="shadow-card-demo" style="box-shadow:0 20px 60px oklch(0 0 0 / 0.12)">
+      <div style="font-size:11px;color:var(--muted-fg);margin-bottom:4px">shadow-sheet</div>
+      TranslationOutputPanel, modals
+    </div>
+  </div>
+
+  <hr />
+
+  <!-- ── MOTION + MICRO-INTERACTIONS ── -->
+  <h2>Interaction Feel (hover &amp; click these)</h2>
+  <p class="section-note">ease-out-quart on enter. scale(0.97) on active press. translateY(-2px) on hover. All from web-animation-design skill.</p>
+
+  <div class="motion-demo">
+    <div class="motion-box">Upload document</div>
+    <div class="motion-box">Add patient</div>
+    <div class="motion-box">Resolve task</div>
+  </div>
+
+  <div style="margin-top:20px;display:flex;gap:12px;align-items:center">
+    <span class="motion-badge badge-translating">
+      <span class="ai-dot"></span>
+      Translating…
+    </span>
+    <span class="motion-badge badge-complete" style="gap:6px">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <path d="M2 6L5 9L10 3" stroke="oklch(0.52 0.13 155)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Translated
+    </span>
+    <span class="ai-strip">
+      <span class="ai-dot"></span>
+      AI is reading this document
+    </span>
+  </div>
+
+  <hr />
+
+  <!-- ── SUMMARY ── -->
+  <h2>What changes in the codebase</h2>
+  <p class="section-note">All of this is a globals.css + layout.tsx update. No component changes needed for the design system layer. Logo and header changes are separate.</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:12px">
+    <div style="padding:16px;background:var(--card);border-radius:var(--radius);border:1px solid var(--border)">
+      <div style="font-weight:600;margin-bottom:8px">globals.css</div>
+      <div style="color:var(--muted-fg);line-height:1.8">
+        Add --brand, --brand-subtle, --brand-muted<br/>
+        Add --patient-accent, --patient-subtle<br/>
+        Add --ai-accent, --ai-subtle<br/>
+        Add --success<br/>
+        Update --background to warm cream<br/>
+        Update --radius to 0.75rem<br/>
+        Add --shadow-card, --shadow-elevated, --shadow-sheet<br/>
+        Add motion tokens (ease + duration)
+      </div>
+    </div>
+    <div style="padding:16px;background:var(--card);border-radius:var(--radius);border:1px solid var(--border)">
+      <div style="font-weight:600;margin-bottom:8px">app/layout.tsx</div>
+      <div style="color:var(--muted-fg);line-height:1.8">
+        Add Plus Jakarta Sans font<br/>
+        Wire --font-heading to Plus Jakarta Sans<br/>
+        Apply heading font to h1, h2, h3 in base layer
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

@@ -1,6 +1,7 @@
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getActiveEpisode } from '@/lib/dal/episodes'
+import { getPatientAccess } from '@/lib/dal/patients'
 import { getEpisodeTasks } from '@/lib/dal/tasks'
 import { TasksClient } from '@/components/features/TasksClient'
 import { resolveTask } from '@/actions/resolve-task'
@@ -16,34 +17,14 @@ export default async function TasksPage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: access } = await supabase
-    .from('patient_access')
-    .select('role')
-    .eq('user_id', user.id)
-    .eq('patient_id', patientId)
-    .single()
-
+  const access = await getPatientAccess(patientId)
   if (!access || access.role !== 'coordinator') notFound()
 
-  const { data: patient } = await supabase
-    .from('patients')
-    .select('id, name')
-    .eq('id', patientId)
-    .single()
-
-  if (!patient) notFound()
-
   const activeEpisode = await getActiveEpisode(patientId)
-
   const tasks = activeEpisode ? await getEpisodeTasks(activeEpisode.id) : []
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">Pending Tasks</h1>
-        <p className="text-sm text-muted-foreground">{patient.name}</p>
-      </div>
-
+    <div className="max-w-3xl mx-auto px-4 py-6">
       <TasksClient
         tasks={tasks}
         defaultShowPostDischarge={

@@ -12,12 +12,21 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-export const OverviewActive: Story = {
-  name: 'Overview active',
+export const DocumentsActive: Story = {
+  name: 'Documents active (default)',
   parameters: { nextjs: { navigation: { pathname: '/dashboard/patient-fixture-id' } } },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText('Overview')).toBeVisible()
+    await expect(canvas.getByText('Documents')).toBeVisible()
+    await expect(canvas.getByText('Summary')).toBeVisible()
     await expect(canvas.getByText('Tasks')).toBeVisible()
+  },
+}
+
+export const SummaryActive: Story = {
+  name: 'Summary active',
+  parameters: { nextjs: { navigation: { pathname: '/dashboard/patient-fixture-id/summary' } } },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText('Summary')).toBeVisible()
   },
 }
 
@@ -25,7 +34,6 @@ export const TasksActive: Story = {
   name: 'Tasks active',
   parameters: { nextjs: { navigation: { pathname: '/dashboard/patient-fixture-id/tasks' } } },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText('Overview')).toBeVisible()
     await expect(canvas.getByText('Tasks')).toBeVisible()
   },
 }
