@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "type": "module",
   "private": true,
+  "types": ".design-sync/ds-entry.d.ts",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks",
     "dev": "next dev",
