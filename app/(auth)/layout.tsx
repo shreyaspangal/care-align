@@ -70,7 +70,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </div>
 
         {/* Footer note */}
-        <p className="text-2xs font-semibold tracking-widest uppercase relative z-10 text-background opacity-30">
+        <p className="text-2xs font-semibold tracking-widest uppercase relative z-10 text-background/50">
           Built for hospital coordinators
         </p>
       </div>

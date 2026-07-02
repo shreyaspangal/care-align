@@ -41,7 +41,7 @@ export function UserProfileMenu({ name, email, initial, onLogout }: UserProfileM
           </div>
           <div className="flex-1 min-w-0 text-left">
             <p className="text-xs font-medium text-foreground truncate">{name}</p>
-            <p className="text-2xs text-muted-foreground truncate">{email}</p>
+            <p className="text-xs text-muted-foreground truncate">{email}</p>
           </div>
           <ChevronUp size={13} className={cn(
             'flex-shrink-0 text-muted-foreground transition-transform',
@@ -62,7 +62,7 @@ export function UserProfileMenu({ name, email, initial, onLogout }: UserProfileM
             <Building2 size={13} className="text-muted-foreground flex-shrink-0" />
             <div className="min-w-0">
               <p className="text-xs font-medium text-foreground truncate">My Workspace</p>
-              <p className="text-2xs text-muted-foreground truncate">{email}</p>
+              <p className="text-xs text-muted-foreground truncate">{email}</p>
             </div>
           </div>
         </div>

@@ -1066,6 +1066,76 @@ The DAL boundary is a privacy boundary, not just a caching boundary. Centralisin
 
 ---
 
+## UI Workflow Automation — Impeccable vs. Design-Sync Evaluation — 2026-06-18
+
+**What did I decide?**
+
+Two tools were evaluated for improving UI quality automation: the existing `.design-sync/` Claude Design integration (already in use) and Impeccable (`impeccable.style`, 23 design commands + 44 deterministic anti-pattern detectors by Paul Bakaus).
+
+**The core finding: they solve different problems at different stages of the pipeline.**
+
+`.design-sync/` operates **before generation** — it feeds the AI context with our real component APIs, design tokens (brand/patient/ai/success namespaces), prop contracts, and conventions from Storybook. It answers: "build with *our* design system." The investment is significant: hand-written barrel exports (`ds-entry.tsx`, `ds-entry.d.ts`), Next.js router stubs for browser preview, compiled CSS from Storybook reference builds, per-component overrides for grid/card mode, and a `conventions.md` that teaches any AI consumer how to compose CareAlign screens.
+
+Impeccable operates **during and after generation** — it provides design thinking workflow (23 commands across create/evaluate/refine/simplify/harden categories) and deterministic quality detection (44 rules covering AI slop tells, typography, color/contrast, layout/spacing, motion, copy, and general quality). It answers: "build *well-designed* UI that doesn't look AI-generated."
+
+**The decision: keep `.design-sync/` as the primary integration, adopt Impeccable incrementally for what it uniquely covers.**
+
+The two tools have zero overlap. `.design-sync/` ensures component fidelity and token accuracy — Impeccable cannot do this (it has no knowledge of our DS). Impeccable catches composition-level problems — monotonous spacing, flat type hierarchy, nested cards, bounce easing, AI color palettes, marketing buzzwords — that `.design-sync/` cannot catch (it operates at the component level, not the page composition level). Our existing `carealig/no-raw-color-values` ESLint rule covers one of Impeccable's 44 checks; the other 43 are net-new coverage.
+
+**Adoption plan — three phases:**
+
+**Phase 1 (immediate):** Run `npx impeccable detect components/ app/` to baseline what it flags on the current codebase. No installation commitment — just a diagnostic. If the findings are noise (e.g. flagging design token usage as violations), the tool isn't worth the integration cost. If they surface real issues, proceed.
+
+**Phase 2 (if Phase 1 finds real issues):** Install and set up `PRODUCT.md` via `/impeccable init` — captures brand context (coordinator=teal, patient=amber, medical/plain-language tone, target demographics). Add `npx impeccable detect src/ --json` to CI alongside `pnpm lint:arch`. The JSON output + exit code 2 pattern fits our existing gate model.
+
+**Phase 3 (pre-launch):** Run `/impeccable audit` on the four key views (coordinator dashboard, patient view, document upload, tasks page) for the five-dimension check (accessibility, performance, theming, responsive, anti-patterns) with P0–P3 severity scoring. Route findings: P0 → fix before launch, P1 → fix in sprint, P2–P3 → backlog.
+
+**What was evaluated but deprioritised:**
+
+| Command | Why deprioritised |
+|---------|------------------|
+| `/impeccable craft` | Full design-to-build workflow — we already have components built and a DS synced. More useful for greenfield pages. |
+| `/impeccable shape` | Discovery briefs — product is well-defined, spec exists. |
+| `/impeccable live` | Browser-based variant iteration — beta, and our workflow is code-first with Storybook stories as the verification layer. |
+| Refine commands (`animate`, `bolder`, `colorize`, etc.) | Valuable individually but not for V1 — these are polish-phase tools for post-launch iteration. |
+
+**What was evaluated as high-value:**
+
+| Tool | Why |
+|------|-----|
+| `npx impeccable detect` | 44 deterministic rules, no LLM cost, JSON output, CI-ready exit codes. Catches things our lint stack doesn't: spacing monotony, type hierarchy flatness, bounce easing, nested cards, WCAG contrast, AI slop tells. |
+| `/impeccable audit` | Five-dimension technical quality check with P0–P3 severity. Good pre-launch gate for coordinator and patient views. |
+| `/impeccable polish` | Targeted page refinement. Useful once V1 pages are functional but before user testing. |
+| `/impeccable critique` | Design review with scoring and persona testing. Good second opinion on component composition. |
+| `PRODUCT.md` + `/impeccable init` | 5-minute setup that captures brand context read by every impeccable command. Low cost, high leverage if we adopt any impeccable workflow. |
+
+**Impeccable's 44 anti-pattern rules — what's relevant to CareAlign:**
+
+The full catalog was reviewed. Rules most likely to surface real issues in our codebase:
+
+- **AI Slop (visual):** Side-tab accent borders (we use left-border accents on some cards), nested cards (our DocumentCard-in-section pattern), border+radius clashes
+- **Typography:** Flat type hierarchy (possible — our type scale is compact), single font family (we use Plus Jakarta Sans + Geist, so likely clear), overused fonts (Geist is flagged)
+- **Color:** Gray text on colored backgrounds (possible in patient view with muted-foreground on tinted surfaces)
+- **Layout:** Monotonous spacing (possible — consistent `gap-3`/`gap-4` throughout), identical card grids
+- **Quality:** WCAG contrast (needs verification), tight line height, cramped padding, skipped heading levels
+- **Copy:** Em-dash overuse (AI-generated translations may exhibit this), marketing buzzwords (landing page copy)
+
+Rules unlikely to apply: purple/violet gradients (we use teal/amber), dark mode glowing accents (no dark mode styling yet), bounce easing (no animations), gradient text, glassmorphism.
+
+**What resisted me?**
+
+Nothing technically — this was a research and evaluation session. The resistance was in the initial framing: the question "is this useful *instead of* design-sync?" was wrong. The right question was "what does this cover that design-sync doesn't?" Once reframed as complementary layers (input context vs. output quality), the evaluation was straightforward.
+
+The `impeccable.style` docs site was intermittently unreachable during the evaluation — fetches timed out or were blocked. The npm package README and `npm view` provided enough information to evaluate. The docs that did load confirmed: 23 commands, 44 detect rules, three workflow phases (Visualize → Shape → Live Build), CI integration via `--json` output and exit codes.
+
+**What did I understand?**
+
+Design quality automation has two orthogonal axes: **fidelity** (does the output match the design system?) and **craft** (does the composition follow good design principles?). `.design-sync/` maximises fidelity. Impeccable maximises craft. Neither covers the other's axis. A codebase can have perfect token usage and still produce monotonous, AI-looking pages — and vice versa.
+
+The 44-rule detector is the highest-leverage piece of Impeccable for a project at our stage. The workflow commands (craft, shape, polish) are valuable but assume you're in a design iteration loop. We're in a build-and-ship loop. The detector fits our existing CI gate model (`pnpm lint:arch` + pre-commit hook) without changing how we work. The workflow commands are tools to reach for when polishing specific pages, not a permanent pipeline addition.
+
+---
+
 ## Content Pipeline
 
 When ready to post, paste raw notes from any phase above into a Claude conversation with:
