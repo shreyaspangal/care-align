@@ -4,6 +4,20 @@
 
 ---
 
+## Navigation — Where to Look When Confused
+
+| Question | Go to |
+|----------|-------|
+| What fields does a table have? | `supabase/migrations/20240101000000_initial_schema.sql` — Section 3 |
+| Who can read/write this table? | Same file — Section 5 (search `ALTER TABLE <name> ENABLE`) |
+| How does a new user get a profile? | Same file — Section 4 (`handle_new_user` trigger) |
+| How does version increment safely? | Same file — Section 6 (`upsert_episode_summary` RPC) + `lib/db/episode-summaries.ts` |
+| Full ER diagram with rationale | This file |
+| Which component uses which data? | `docs/COMPONENT_PLAN.md` |
+| AI pipeline step order | `CLAUDE.md` — AI Pipeline section |
+
+---
+
 ## Design Principles
 
 1. **Soft deletes everywhere** — health data is never hard deleted. `deleted_at` is nullable on every entity. All queries filter `WHERE deleted_at IS NULL`.

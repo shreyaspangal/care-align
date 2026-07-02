@@ -42,6 +42,9 @@ next-env.d.ts
 storybook-static
 .vercel
 
+# hackathon research track — separate from the main product, not committed
+docs/AI_HACKATHON_HEALTHCARE.md
+
 # design-sync (claude.ai/design import)
 .design-sync/sb-reference/
 .design-sync/learnings/
