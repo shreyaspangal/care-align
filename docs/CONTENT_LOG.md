@@ -42,6 +42,24 @@ The navigation table belonged in DATA_MODEL.md because it answers "where do I lo
 
 ---
 
+## ADR-013 Documentation Sync + Untracked Research Docs — 2026-07-13
+
+**What did I decide?**
+
+The unified access model (provenance tracking, bilateral revocation, single route tree) had already shipped in code — `20260702000000_patient_access_provenance_and_revocation.sql`, the DAL/actions/component/route commits — but `ARCHITECTURE.md` and `DATA_MODEL.md` still described the old two-route-tree, role-gated version. Decided to close that gap in one pass rather than let it compound: added ADR-013 to `ARCHITECTURE.md` documenting the decision itself, and marked ADR-005 ("Two views, one data model") and ADR-011 ("proxy.ts as the single auth and routing boundary") as **superseded by ADR-013** rather than deleting them — the old ADRs are still correct history of what was decided and why at the time, they're just no longer the current implementation. `DATA_MODEL.md` got the actual schema catch-up: the `patient_access_provenance` enum, the `pinned_at`/`provenance`/`invite_id` columns on `PatientAccess`, a new `PatientInvite` entity section, and the four RLS policies added by the revocation migration (patient-revokes-coordinator, coordinator-self-revoke, coordinator-revokes-patient, and the SELECT policy that lets a patient see who has coordinator access to their own record).
+
+Separately, discovered `docs/ANTI_PATTERNS.md`, `docs/ONBOARDING_RESEARCH.md`, and `docs/PRIVACY_TRUST_RESEARCH.md` existed as real, finished files on disk — and were already being pointed to from `CLAUDE.md` and `AGENTS.md` — but had never been `git add`-ed. Committed all three. Also fixed two lingering `app/(coordinator)/...` path references inside `ANTI_PATTERNS.md` left over from the route-tree rename, which would have sent a future session to a directory that no longer exists.
+
+**What resisted me?**
+
+Deciding how to mark a superseded ADR. The instinct was to just delete ADR-005 and ADR-011's implementation sections once they stopped being true. Rejected that — an ADR is a record of a decision made under a specific set of constraints; deleting it erases the evidence of what changed and why, which is the whole point of keeping ADRs at all. Struck through the specific implementation bullets that no longer hold (the two-route-tree paths) and added a one-line "superseded by ADR-013, kept for history" note above each affected ADR instead.
+
+**What did I understand?**
+
+Documentation drift is the same failure mode as schema drift (Phase 12's `pnpm supabase db push` incident) — the source of truth changed, and nothing forced the description of it to change at the same time. There's no lint rule that catches "this markdown file no longer matches the code it describes." The only defence is treating a docs-sync pass as its own explicit step at the end of a feature, not an afterthought folded silently into whatever commit happens to touch the same files. The untracked-files discovery was a milder version of the same lesson: a file can be fully written, correct, and even referenced by other docs, and still not exist in the repo's history at all if no one runs `git status` and actually looks at what's untracked.
+
+---
+
 ## Unified Access Model — 2026-07-02
 
 **What did I decide?**
