@@ -2,14 +2,19 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { FileText, Sparkles, CheckSquare } from 'lucide-react'
+import { FileText, Sparkles, CheckSquare, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { UserRole } from '@/lib/types/domain'
 
 type PatientTabNavProps = {
   patientId: string
+  role: UserRole
 }
 
-const tabs = (patientId: string) => [
+// Tabs are permission-aware, not role-separate routes: Documents + Summary
+// always show; Tasks only for a coordinator on this record; Access (the
+// patient-visible "who has access" list) only for the patient on this record.
+const tabs = (patientId: string, role: UserRole) => [
   {
     label: 'Summary',
     href: `/dashboard/${patientId}/summary`,
@@ -20,23 +25,29 @@ const tabs = (patientId: string) => [
     label: 'Documents',
     href: `/dashboard/${patientId}`,
     icon: FileText,
-    isActive: (p: string) => !p.includes('/summary') && !p.endsWith('/tasks'),
+    isActive: (p: string) => !p.includes('/summary') && !p.endsWith('/tasks') && !p.endsWith('/access'),
   },
-  {
+  ...(role === 'coordinator' ? [{
     label: 'Tasks',
     href: `/dashboard/${patientId}/tasks`,
     icon: CheckSquare,
     isActive: (p: string) => p.endsWith('/tasks'),
-  },
+  }] : []),
+  ...(role === 'patient' ? [{
+    label: 'Access',
+    href: `/dashboard/${patientId}/access`,
+    icon: ShieldCheck,
+    isActive: (p: string) => p.endsWith('/access'),
+  }] : []),
 ]
 
-export function PatientTabNav({ patientId }: PatientTabNavProps) {
+export function PatientTabNav({ patientId, role }: PatientTabNavProps) {
   const pathname = usePathname() ?? ''
 
   return (
     <nav className="border-b border-border">
       <div className="flex px-4 max-w-3xl mx-auto">
-        {tabs(patientId).map(({ label, href, icon: Icon, isActive }) => {
+        {tabs(patientId, role).map(({ label, href, icon: Icon, isActive }) => {
           const active = isActive(pathname)
           return (
             <Link

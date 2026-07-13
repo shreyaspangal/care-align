@@ -6,10 +6,10 @@ import { usePathname } from 'next/navigation'
 import { UserPlus, Pin, LayoutList, Archive } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import type { PatientListItem } from '@/lib/dal/patients'
+import type { MyAccessListItem } from '@/lib/dal/patients'
 
 type CoordinatorSidebarNavProps = {
-  patients: PatientListItem[]
+  patients: MyAccessListItem[]
   onTogglePin: (patientId: string, currentlyPinned: boolean) => Promise<{ ok: boolean; error?: string }>
 }
 
@@ -21,8 +21,8 @@ export function CoordinatorSidebarNav({ patients, onTogglePin }: CoordinatorSide
   const activePatientId = pathname.match(/\/dashboard\/([^/]+)/)?.[1]
 
   const { active, archived } = useMemo(() => {
-    const active: PatientListItem[] = []
-    const archived: PatientListItem[] = []
+    const active: MyAccessListItem[] = []
+    const archived: MyAccessListItem[] = []
     for (const p of patients) {
       if (p.admission_status === 'closed') archived.push(p)
       else active.push(p)
@@ -30,7 +30,7 @@ export function CoordinatorSidebarNav({ patients, onTogglePin }: CoordinatorSide
     return { active, archived }
   }, [patients])
 
-  function handlePin(e: React.MouseEvent, patient: PatientListItem) {
+  function handlePin(e: React.MouseEvent, patient: MyAccessListItem) {
     e.preventDefault()
     e.stopPropagation()
     startTransition(async () => {
@@ -123,9 +123,9 @@ export function CoordinatorSidebarNav({ patients, onTogglePin }: CoordinatorSide
 // ── Patient row ───────────────────────────────────────────────────────────────
 
 type PatientRowProps = {
-  patient: PatientListItem
+  patient: MyAccessListItem
   isActive: boolean
-  onPin: (e: React.MouseEvent, patient: PatientListItem) => void
+  onPin: (e: React.MouseEvent, patient: MyAccessListItem) => void
   dimmed?: boolean
 }
 
@@ -158,6 +158,10 @@ function PatientRow({ patient, isActive, onPin, dimmed }: PatientRowProps) {
       )} />
 
       <span className="flex-1 truncate">{patient.name}</span>
+
+      {patient.role === 'patient' && (
+        <span className="text-2xs text-muted-foreground/70 flex-shrink-0">Your care</span>
+      )}
 
       {/* Always rendered — opacity toggled to avoid height shift */}
       <Button

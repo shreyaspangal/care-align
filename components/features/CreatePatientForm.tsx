@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 
-type FieldErrors = Partial<Record<'name' | 'dob' | 'gender' | 'admission_status', string>>
+type FieldErrors = Partial<Record<'name' | 'dob' | 'gender' | 'admission_status' | 'attested', string>>
 
 type Props = {
   onCreatePatient: (_prev: CreatePatientState, formData: FormData) => Promise<CreatePatientState>
@@ -22,6 +22,7 @@ export function CreatePatientForm({ onCreatePatient }: Props) {
   const [dob, setDob] = useState('')
   const [gender, setGender] = useState('')
   const [admissionStatus, setAdmissionStatus] = useState<'admitted' | 'outpatient'>('admitted')
+  const [attested, setAttested] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -30,6 +31,7 @@ export function CreatePatientForm({ onCreatePatient }: Props) {
       dob,
       gender,
       admission_status: admissionStatus,
+      attested,
     })
     if (!result.success) {
       e.preventDefault()
@@ -148,6 +150,25 @@ export function CreatePatientForm({ onCreatePatient }: Props) {
             </label>
           ))}
         </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="flex items-start gap-2.5 cursor-pointer">
+          <input
+            type="checkbox"
+            name="attested"
+            checked={attested}
+            onChange={(e) => { setAttested(e.target.checked); setFieldErrors(p => ({ ...p, attested: undefined })) }}
+            disabled={isPending}
+            className="mt-0.5 accent-primary"
+          />
+          <span className="text-xs text-muted-foreground leading-relaxed">
+            I&apos;m creating this record because {name || 'this person'} can&apos;t set up their own account right now. I confirm I have their authority to manage their care information.
+          </span>
+        </label>
+        {fieldErrors.attested && (
+          <p className="text-xs text-destructive">{fieldErrors.attested}</p>
+        )}
       </div>
 
       <Button type="submit" disabled={isPending} className="w-full h-10" size="lg">

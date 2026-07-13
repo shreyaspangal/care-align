@@ -18,6 +18,7 @@ export const Default: Story = {
     await expect(canvas.getByLabelText('Date of birth')).toBeVisible()
     await expect(canvas.getByLabelText('Gender')).toBeVisible()
     await expect(canvas.getByText('Admission type')).toBeVisible()
+    await expect(canvas.getByText(/I confirm I have their authority/)).toBeVisible()
     await expect(canvas.getByRole('button', { name: /add patient/i })).toBeVisible()
   },
 }

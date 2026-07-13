@@ -3,8 +3,8 @@ import { fn, expect } from 'storybook/test'
 import { CoordinatorSidebarNav } from './CoordinatorSidebarNav'
 
 const PATIENTS = [
-  { id: 'patient-001', name: 'Ramesh Sharma', admission_status: 'admitted',  date_of_birth: '1958-03-12', pinned_at: null },
-  { id: 'patient-002', name: 'Priya Nair',    admission_status: 'outpatient', date_of_birth: '1985-07-22', pinned_at: null },
+  { id: 'patient-001', name: 'Ramesh Sharma', admission_status: 'admitted',  date_of_birth: '1958-03-12', pinned_at: null, role: 'coordinator' as const },
+  { id: 'patient-002', name: 'Priya Nair',    admission_status: 'outpatient', date_of_birth: '1985-07-22', pinned_at: null, role: 'patient' as const },
 ]
 
 const meta = {
