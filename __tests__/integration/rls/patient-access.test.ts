@@ -80,3 +80,73 @@ describe.skipIf(!RLS_ENABLED)('RLS — patient write restrictions', () => {
     expect(true).toBe(true)
   })
 })
+
+describe.skipIf(!RLS_ENABLED)('RLS — bilateral revocation and access visibility', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let patientClient: SupabaseClient<any>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let coordBClient: SupabaseClient<any>
+
+  beforeAll(async () => {
+    patientClient = createClient(process.env.TEST_SUPABASE_URL!, process.env.TEST_SUPABASE_PUBLISHABLE_KEY!)
+    coordBClient  = createClient(process.env.TEST_SUPABASE_URL!, process.env.TEST_SUPABASE_PUBLISHABLE_KEY!)
+    await patientClient.auth.signInWithPassword({ email: SEED.patient.email, password: SEED.patient.password })
+    await coordBClient.auth.signInWithPassword({ email: SEED.coordB.email, password: SEED.coordB.password })
+  })
+
+  it('patient can see the coordinator access row for their own record', async () => {
+    const { data, error } = await patientClient
+      .from('patient_access')
+      .select('user_id, role, provenance')
+      .eq('patient_id', SEED.patientAId)
+      .eq('role', 'coordinator')
+
+    expect(error).toBeNull()
+    expect(data!.length).toBeGreaterThan(0)
+  })
+
+  it('patient can see the coordinator profile name for their own record', async () => {
+    const { data, error } = await patientClient
+      .from('profiles')
+      .select('name')
+      .eq('id', SEED.coordA.userId)
+
+    expect(error).toBeNull()
+    expect(data).toHaveLength(1)
+  })
+
+  it('an unrelated coordinator cannot see the patient\'s profile name', async () => {
+    const { data, error } = await coordBClient
+      .from('profiles')
+      .select('name')
+      .eq('id', SEED.patient.userId)
+
+    // RLS returns empty rows, not an error, for a non-shared-patient lookup
+    expect(error).toBeNull()
+    expect(data).toHaveLength(0)
+  })
+
+  it('an unrelated coordinator cannot delete a coordinator row on a different patient', async () => {
+    const { data, error } = await coordBClient
+      .from('patient_access')
+      .delete()
+      .eq('patient_id', SEED.patientAId)
+      .eq('user_id', SEED.coordA.userId)
+      .eq('role', 'coordinator')
+      .select('id')
+
+    // No matching RLS policy grants coordB delete rights here — 0 rows affected
+    expect(error).toBeNull()
+    expect(data).toHaveLength(0)
+  })
+
+  // A live "patient deletes coordA's row" test is deliberately omitted here:
+  // there is no service-role test client or seed-reset tooling in this suite
+  // to restore the row afterward, and coordA's INSERT policy requires an
+  // *existing* coordinator row — once revoked, coordA can't re-grant
+  // themselves, so a destructive test here would permanently break every
+  // other coordA-authored fixture in this file for good. The policy shape
+  // itself (mirrors the existing, already-tested INSERT policy) is reviewed
+  // in the migration; add a positive delete test once seed-reset tooling
+  // exists (e.g. a per-test disposable patient created via service role).
+})
