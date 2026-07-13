@@ -96,9 +96,12 @@ export async function redeemToken(
     .maybeSingle()
 
   if (!existing) {
+    // provenance is 'self_consented': the patient is redeeming this invite
+    // themselves — invite_id preserves the link back to who created it
+    // (patient_invites.created_by) for the "who has access" provenance label.
     const { error: accessError } = await service
       .from('patient_access')
-      .insert({ user_id: userId, patient_id: invite.patient_id, role: 'patient' })
+      .insert({ user_id: userId, patient_id: invite.patient_id, role: 'patient', provenance: 'self_consented', invite_id: invite.id })
 
     if (accessError) {
       log.error('join', 'patient_access insert failed — rolling back token mark', {
@@ -142,7 +145,7 @@ export async function autoJoinAsPatient(
   const result = await redeemToken(token, user.id)
   if (!result.ok) return { error: result.error! }
 
-  redirect(`/patient/${result.patientId}`)
+  redirect(`/dashboard/${result.patientId}`)
 }
 
 // ── PIN verification + anonymous sign-in + redeem ────────────────────────────
@@ -219,7 +222,7 @@ export async function verifyPinAndJoin(
   const result = await redeemToken(token, user.id)
   if (!result.ok) return { error: result.error! }
 
-  redirect(`/patient/${result.patientId}`)
+  redirect(`/dashboard/${result.patientId}`)
 }
 
 // ── Sign in with existing account + redeem ────────────────────────────────────
@@ -246,7 +249,7 @@ export async function signInAndJoin(
 
   const result = await redeemToken(token, user.id)
   if (!result.ok) return { error: result.error! }
-  redirect(`/patient/${result.patientId}`)
+  redirect(`/dashboard/${result.patientId}`)
 }
 
 // ── Sign up with new account + redeem ────────────────────────────────────────
@@ -290,5 +293,5 @@ export async function signUpAndJoin(
 
   const result = await redeemToken(token, user.id)
   if (!result.ok) return { error: result.error! }
-  redirect(`/patient/${result.patientId}`)
+  redirect(`/dashboard/${result.patientId}`)
 }

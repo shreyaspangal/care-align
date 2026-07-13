@@ -21,26 +21,15 @@ export async function createPatient(
 
   log.debug('createPatient', 'user authenticated', { userId: user.id })
 
-  // Verify the caller is a coordinator by role
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile || profile.role !== 'coordinator') {
-    log.warn('createPatient', 'non-coordinator attempted to create patient', {
-      userId: user.id,
-      role: profile?.role,
-    })
-    return { error: 'Only coordinators can add patients.' }
-  }
-
+  // Any authenticated user can create a new patient record and becomes its
+  // coordinator — "coordinator" is a per-record permission, not an account
+  // type assigned at signup.
   const raw = {
     name: formData.get('name'),
     dob: formData.get('dob'),
     gender: formData.get('gender'),
     admission_status: formData.get('admission_status'),
+    attested: formData.get('attested') === 'on',
   }
 
   log.debug('createPatient', 'validating form input', { name: raw.name, gender: raw.gender })
@@ -76,10 +65,13 @@ export async function createPatient(
 
   log.info('createPatient', 'patient record created', { patientId: patient.id })
 
-  // Grant coordinator access — from this point RLS works for all future queries
+  // Grant coordinator access — from this point RLS works for all future queries.
+  // provenance is 'coordinator_attested': the patient didn't consent directly
+  // at grant time (see the attestation checkbox in CreatePatientForm) — never
+  // collapse this with a patient's own self-consented row.
   const { error: accessError } = await service
     .from('patient_access')
-    .insert({ user_id: user.id, patient_id: patient.id, role: 'coordinator' })
+    .insert({ user_id: user.id, patient_id: patient.id, role: 'coordinator', provenance: 'coordinator_attested' })
 
   if (accessError) {
     log.error('createPatient', 'access grant failed — rolling back patient', {

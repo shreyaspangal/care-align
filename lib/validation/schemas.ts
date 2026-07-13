@@ -25,6 +25,9 @@ export const CreatePatientSchema = z.object({
     error: () => ({ message: 'Please select a gender.' }),
   }),
   admission_status: z.enum(['admitted', 'outpatient']).default('admitted'),
+  attested: z.literal(true, {
+    error: () => ({ message: 'Please confirm before continuing.' }),
+  }),
 })
 
 // ─── Document Upload ──────────────────────────────────────────────────────────
