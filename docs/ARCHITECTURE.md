@@ -89,6 +89,8 @@ Claude is specifically stronger on long-document comprehension and instruction f
 
 ### ADR-005 — Two views, one data model
 
+> **Superseded by ADR-013.** The "different presentation" premise still holds, but the two-route-tree implementation described below was replaced by a single, permission-aware route tree. Kept for history.
+
 **Decision:** Coordinator and patient see different views of the same underlying data. No separate data stores.
 
 **Rationale:**
@@ -97,10 +99,10 @@ Claude is specifically stronger on long-document comprehension and instruction f
 - Patient view: simplified status, plain language only, no raw medical data
 - RLS handles access control at database level
 
-**Implementation:**
-- Coordinator route: `/dashboard/[patientId]`
-- Patient route: `/patient/[patientId]`
-- Shared data fetching functions, different UI components
+**Implementation (superseded — see ADR-013):**
+- ~~Coordinator route: `/dashboard/[patientId]`~~
+- ~~Patient route: `/patient/[patientId]`~~
+- ~~Shared data fetching functions, different UI components~~
 
 ---
 
@@ -478,6 +480,8 @@ if (existing) {
 
 ### ADR-011 — proxy.ts as the single auth and routing boundary
 
+> **Partially superseded by ADR-013.** Session validation and the request-lifecycle mechanics below are unchanged. The role-based routing table (patient→`/patient/[id]`, coordinator→`/dashboard/[id]`) is not — there is one route tree now, and `proxy.ts` no longer branches on `profiles.role` at all. Kept for the parts that still apply.
+
 **Decision:** All session validation and role-based routing lives in `proxy.ts`. No page or layout performs its own auth redirect.
 
 **Rationale:**
@@ -511,12 +515,15 @@ if (existing) {
 │    │                                                                │
 │    ├─ [no user]  ──────────────────────► redirect → /login         │
 │    │                                                                │
-│    ├─ [user exists]                                                 │
-│    │      └─ query profiles.role                                    │
+│    ├─ [user exists] at /, /login, or /register                      │
+│    │      └─ fetch all patient_access rows for this user            │
+│    │            └─ resolveHomePath(rows) — see ADR-013:              │
+│    │               exactly one row  ──► /dashboard/[id]/summary     │
+│    │               zero or many     ──► /dashboard                  │
 │    │                                                                │
-│    │      ├─ patient on /dashboard  ──► redirect → /patient/[id]   │
-│    │      ├─ coordinator on /patient ─► redirect → /dashboard/[id] │
-│    │      └─ logged-in on /login ─────► redirect → /dashboard      │
+│    │      (per-record correctness for /dashboard/[id]/* is NOT      │
+│    │       proxy.ts's job — the layout's own getPatientAccess(id)   │
+│    │       check handles it; see ADR-013)                            │
 │    │                                                                │
 │    └─ 3. setAll() writes refreshed token into response cookies      │
 │              └─► browser gets updated token transparently           │
@@ -546,7 +553,8 @@ register(formData)
 
 login(formData)
   ├─ supabase.auth.signInWithPassword()
-  └─ redirect('/dashboard')
+  ├─ fetch all patient_access rows for this user
+  └─ redirect(resolveHomePath(rows))   ← same helper proxy.ts uses (ADR-013)
 
 logout()
   ├─ supabase.auth.signOut()  ← clears session cookie
@@ -645,3 +653,23 @@ GET /api/documents/[documentId]/file
   Signed URLs are generated fresh on every file access request.
 - **Rate limit is per user ID** — prevents a single coordinator from triggering
   runaway Claude API costs if they accidentally loop an upload.
+
+---
+
+## ADR-013 — Unified access model: one route tree, per-record permissions
+
+**Decision:** Collapse the two separate route trees (`app/(coordinator)/dashboard/[patientId]`, `app/(patient)/patient/[patientId]`) into one (`app/(app)/dashboard/[patientId]`). "Coordinator" is no longer an account-wide type read from `profiles.role` — it's a permission held per `(user_id, patient_id)` pair in `patient_access.role`, checked fresh on every record. Supersedes the routing portions of ADR-005 and ADR-011.
+
+**Why now:**
+Competitor research (`docs/ONBOARDING_RESEARCH.md`) found that products which actually solve "one person manages several people's health records" (MyChart, EkaCare) use one shell with per-record permissions — none run separate apps for "the person managing" vs. "the person being managed." CareAlign's original two-tree split wasn't validated by any product researched; the market gap CareAlign is aiming at (a one-stop family health record vault, per `docs/PRIVACY_TRUST_RESEARCH.md`) requires one person to simultaneously hold coordinator access to one relative's record and patient-role access to their own — the old model made that structurally impossible, since every gate checked one account-wide `profiles.role`.
+
+**What changed:**
+- `proxy.ts` and `actions/auth.ts` no longer branch on `profiles.role`. Both use `resolveHomePath()` (`lib/auth/resolve-home-path.ts`) fed by the user's full `patient_access` row list: exactly one row → straight to that record; zero or many → the `/dashboard` shell (which already renders the right thing — empty state, single list, or search — regardless of role mix).
+- `app/(app)/layout.tsx` (renamed from `app/(coordinator)/layout.tsx`) admits any authenticated user — no role check. Its sidebar (`CoordinatorSidebarNav`) is fed `getMyAccessList()` (all roles), not the old coordinator-only `getCoordinatorPatients()`.
+- `app/(app)/dashboard/[patientId]/layout.tsx` calls `getPatientAccess(patientId)` — the same per-record primitive that already existed — and branches its header, tab nav (`PatientTabNav`, now taking a `role` prop instead of two separate components), and action buttons on the result. This is the one and only per-record gate; `proxy.ts` does not duplicate it.
+- `actions/create-patient.ts` no longer checks `profile.role === 'coordinator'` before allowing patient creation — any authenticated user can create a record and becomes its coordinator for that record only.
+- `profiles.role` still exists and is still set at signup, but is now purely a display/history field (which page a user's very first session looked like) — it is not read by any auth gate.
+
+**What this enabled (see also ADR "Bilateral revocation" content in DATA_MODEL.md's `patient_access` RLS section):** `patient_access` gained `provenance` (`self_consented` | `coordinator_attested`) and real DELETE policies, so a patient can revoke a coordinator's access to their own record independent of who granted it, and a coordinator can self-revoke (guarded against orphaning a record with no other coordinator). These didn't strictly require the route unification, but were designed and shipped together because both come from the same underlying shift: access is a record-level fact you can inspect and act on, not a role baked into an account.
+
+**Explicitly not done in this pass:** an "invite a second coordinator" flow (so self-revoke is currently a near-universal no-op — every existing patient has exactly one coordinator), and the onboarding-checklist UI. Both are deliberate follow-ups, not oversights.

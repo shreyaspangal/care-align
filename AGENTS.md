@@ -17,27 +17,25 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 A coordinator uploads medical documents from an active hospitalisation. Claude classifies and translates each one into plain language — producing a living episode summary that both the coordinator and the patient can read.
 
-Two users. One data model. Different views.
+One route tree, one login. "Coordinator" is a permission on a specific patient record (`patient_access.role`), not an account type — the same person can hold full access to one relative's record and read-only access to their own, at the same time. See `docs/ARCHITECTURE.md` ADR-013.
 
 ---
 
 ## Build Status (2026-07-02)
 
-V1 is **feature-complete**. Every phase in `docs/BUILD_PLAN.md` has shipped.
+V1 is **feature-complete**. Every phase in `docs/BUILD_PLAN.md` has shipped, plus a foundation-phase rework moving from account-level to per-record access (ADR-013).
 
 | Feature | Status |
 |---------|--------|
 | Auth (login / register / logout) | ✓ Done |
-| Coordinator dashboard + sidebar nav | ✓ Done |
+| Unified dashboard shell + sidebar nav (any role) | ✓ Done |
 | Patient invite flow (`/join/[token]`) | ✓ Done |
 | Document upload → AI classify → translate | ✓ Done |
 | Episode summary + tasks | ✓ Done |
-| Patient view (read-only, auth-gated) | ✓ Done |
+| Per-record patient view (read-only) + Access tab (bilateral revocation) | ✓ Done |
 | Enforcement stack (8 ESLint rules + pre-commit) | ✓ Done |
 
-**Uncommitted right now:** Minor UI tweaks (opacity, font size, transition scoping).
-
-**Next work unit:** Commit pending changes (see CLAUDE.md → Phase exit gate), then determine next direction.
+**Next work unit:** Determine next direction — candidates are an "invite a second coordinator" flow (self-revoke is currently a near-universal no-op without one) and the onboarding-checklist UI (`docs/ONBOARDING_RESEARCH.md`).
 
 ---
 

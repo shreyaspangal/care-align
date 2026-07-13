@@ -84,6 +84,11 @@ CREATE TYPE document_status AS ENUM (
 -- classified:             Step 1 complete, type/name/purpose confirmed
 -- translated:             Steps 1+2 complete, DocumentTranslation record exists
 -- failed:                 Any Claude step failed; document is orphaned — user must retry
+
+CREATE TYPE patient_access_provenance AS ENUM ('self_consented', 'coordinator_attested');
+-- self_consented:       the access-holder redeemed a patient_invites token themselves
+-- coordinator_attested: a coordinator created the row asserting authority on the
+--                       patient's behalf, without the patient's direct action
 ```
 
 ---
@@ -151,25 +156,58 @@ The coordinator also has a language preference for their own view. Language is a
 ---
 
 ### PatientAccess
-Links users to patients with explicit roles. Supports multiple coordinators for one patient.
+Links users to patients with explicit roles. Supports multiple coordinators for one patient, and one user holding access to multiple patients — this is the table that makes the unified access model possible: "coordinator" is a permission on a specific `(user_id, patient_id)` pair, not an account-wide type.
 
 ```sql
 CREATE TABLE patient_access (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     UUID NOT NULL REFERENCES profiles(id),
-  patient_id  UUID NOT NULL REFERENCES patients(id),
-  role        user_role NOT NULL,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      UUID NOT NULL REFERENCES profiles(id),
+  patient_id   UUID NOT NULL REFERENCES patients(id),
+  role         user_role NOT NULL,
+  pinned_at    TIMESTAMPTZ,
+  provenance   patient_access_provenance NOT NULL,
+  invite_id    UUID REFERENCES patient_invites(id) ON DELETE SET NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
 
   UNIQUE(user_id, patient_id)
 );
 
-CREATE INDEX idx_patient_access_user_id ON patient_access(user_id);
-CREATE INDEX idx_patient_access_patient_id ON patient_access(patient_id);
+CREATE INDEX idx_patient_access_user_id     ON patient_access(user_id);
+CREATE INDEX idx_patient_access_patient_id  ON patient_access(patient_id);
+CREATE INDEX idx_patient_access_provenance  ON patient_access(provenance);
+CREATE INDEX idx_patient_access_invite_id   ON patient_access(invite_id);
+```
+
+`provenance` is `patient_access_provenance` (`'self_consented' | 'coordinator_attested'`, see enum table below) — added in `20260702000000_patient_access_provenance_and_revocation.sql`. It records *how* a grant came to exist, deliberately never collapsing the two cases: `self_consented` means the access-holder redeemed a `patient_invites` token themselves (always `role = 'patient'` today); `coordinator_attested` means a coordinator created the row asserting authority on the patient's behalf, typically because the patient couldn't act for themselves at that moment (always `role = 'coordinator'` today, tagged at the same insert in `actions/create-patient.ts` that bootstraps the patient record). `invite_id` links a `self_consented` row back to the invite that created it.
+
+**Why this exists:**
+During the hospitalisation, multiple family members may need access. The patient themselves also needs access — as a different role. PatientAccess makes this explicit and queryable. It's also the sole gate the app-level route consolidation relies on: `app/(app)/dashboard/[patientId]/*` is one route tree for every role, and every page/layout under it calls `getPatientAccess(patientId)` to decide what to render — there is no separate route tree per role anymore.
+
+---
+
+### PatientInvite
+A one-time-use, expiring link (optionally PIN-protected) a coordinator generates so a patient can redeem `role = 'patient'` access to their own record without the coordinator needing to know their email in advance.
+
+```sql
+CREATE TABLE patient_invites (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  token         TEXT NOT NULL UNIQUE DEFAULT ...,  -- random, unguessable
+  patient_id    UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+  created_by    UUID NOT NULL REFERENCES auth.users(id),
+  expires_at    TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '7 days'),
+  used_at       TIMESTAMPTZ,
+  used_by       UUID REFERENCES auth.users(id),
+  pin_hash      TEXT,       -- bcrypt hash; NULL means no-PIN "direct access" link
+  pin_attempts  INTEGER NOT NULL DEFAULT 0,
+  pin_locked_at TIMESTAMPTZ,  -- set after MAX_PIN_ATTEMPTS (5) wrong guesses; no unlock path
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 ```
 
 **Why this exists:**
-During the hospitalisation, multiple family members may need access. The patient themselves also needs access — as a different role. PatientAccess makes this explicit and queryable.
+Coordinators frequently don't know the patient's email at creation time (they may be hospitalised, without a phone in hand, or simply not yet using the app). The invite is delivered out-of-band (WhatsApp link + a phone call for the PIN) and redemption is what creates the patient's own `patient_access` row — see `actions/join-as-patient.ts`. Generating a new invite for a patient expires all of that patient's prior pending invites, so only one is ever valid at a time.
+
+**Redemption is not the only source of a `patient_access` row for this patient** — the coordinator's own row is created earlier, at patient creation (`actions/create-patient.ts`), by a completely separate path that never touches this table. `patient_access.invite_id` is only ever populated on `self_consented` rows.
 
 ---
 
@@ -719,8 +757,12 @@ CREATE POLICY "Users see own patient access"
 ON patient_access FOR SELECT
 USING (user_id = auth.uid());
 
--- Coordinators can grant access to other users for their own patients
--- (needed for multi-family-member access and for the initial self-registration row)
+-- Coordinators can grant access to other users for their own patients.
+-- The original version of this policy also allowed `user_id = auth.uid()`
+-- as an OR clause (self-registration) — that was an unused security hole,
+-- removed in 20260616000001_fix_patient_access_rls.sql. There is no
+-- self-service insert path anymore; all inserts go through service-role
+-- actions (actions/create-patient.ts, actions/join-as-patient.ts).
 CREATE POLICY "Coordinators can insert patient access for own patients"
 ON patient_access FOR INSERT
 WITH CHECK (
@@ -730,9 +772,105 @@ WITH CHECK (
     AND existing.user_id = auth.uid()
     AND existing.role = 'coordinator'
   )
-  OR
-  -- Allow a user to insert their own first access row (initial registration)
-  user_id = auth.uid()
+);
+
+-- Bilateral revocation (added in
+-- 20260702000000_patient_access_provenance_and_revocation.sql). Before this,
+-- patient_access had no UPDATE or DELETE policy at all — every mutation went
+-- through a service-role action. These three DELETE policies mirror the
+-- INSERT policy's EXISTS-subquery shape, giving a DB-enforced boundary
+-- instead of relying solely on application code:
+
+-- (a) A patient can revoke ANY coordinator's access to their own record —
+--     unconditional, does not require the coordinator's cooperation.
+CREATE POLICY "Patients can revoke coordinator access to their own record"
+ON patient_access FOR DELETE
+USING (
+  role = 'coordinator'
+  AND EXISTS (
+    SELECT 1 FROM patient_access self
+    WHERE self.patient_id = patient_access.patient_id
+      AND self.user_id = auth.uid() AND self.role = 'patient'
+  )
+);
+
+-- (b) A coordinator can revoke their OWN access (self-revoke / "leave").
+CREATE POLICY "Coordinators can revoke their own access"
+ON patient_access FOR DELETE
+USING (user_id = auth.uid() AND role = 'coordinator');
+
+-- (c) A coordinator can revoke a patient-role row for a patient they coordinate.
+CREATE POLICY "Coordinators can revoke patient-role access for own patients"
+ON patient_access FOR DELETE
+USING (
+  role = 'patient'
+  AND EXISTS (
+    SELECT 1 FROM patient_access existing
+    WHERE existing.patient_id = patient_access.patient_id
+      AND existing.user_id = auth.uid() AND existing.role = 'coordinator'
+  )
+);
+
+-- Visibility: a patient must be able to see who has coordinator access to
+-- their own record (the previous SELECT policy above only returns the
+-- caller's own row) — this is what powers the patient-visible "who has
+-- access" list at /dashboard/[patientId]/access.
+CREATE POLICY "Patients can see coordinator access rows for their own record"
+ON patient_access FOR SELECT
+USING (
+  role = 'coordinator'
+  AND EXISTS (
+    SELECT 1 FROM patient_access self
+    WHERE self.patient_id = patient_access.patient_id
+      AND self.user_id = auth.uid() AND self.role = 'patient'
+  )
+);
+```
+
+### patient_invites
+
+```sql
+ALTER TABLE patient_invites ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "coordinators can insert invites for their patients"
+ON patient_invites FOR INSERT
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM patient_access
+    WHERE patient_access.patient_id = patient_invites.patient_id
+      AND patient_access.user_id = auth.uid()
+      AND patient_access.role = 'coordinator'
+  )
+);
+
+CREATE POLICY "coordinators can view their own invites"
+ON patient_invites FOR SELECT
+USING (created_by = auth.uid());
+```
+
+Invite lookup during redemption (`getInviteByToken` in `lib/dal/invites.ts`) happens pre-authentication, so it uses `createServiceClient()` rather than relying on either policy above.
+
+### profiles
+
+```sql
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+
+-- Baseline: a user can read/update only their own profile.
+CREATE POLICY "Users can read and update their own profile"
+ON profiles FOR ALL
+USING (id = auth.uid());
+
+-- Added in 20260702000000_patient_access_provenance_and_revocation.sql — the
+-- "who has access" list needs to render a coordinator's NAME, and the
+-- baseline policy above only ever lets you see your own.
+CREATE POLICY "Users can see the name of anyone who shares patient access with them"
+ON profiles FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1 FROM patient_access mine
+    JOIN patient_access theirs ON theirs.patient_id = mine.patient_id
+    WHERE mine.user_id = auth.uid() AND theirs.user_id = profiles.id
+  )
 );
 ```
 
