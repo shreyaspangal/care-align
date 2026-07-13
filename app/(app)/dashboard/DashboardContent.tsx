@@ -7,11 +7,11 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { CreatePatientForm } from '@/components/features/CreatePatientForm'
-import type { PatientListItem } from '@/lib/dal/patients'
+import type { MyAccessListItem } from '@/lib/dal/patients'
 import type { CreatePatientState } from '@/actions/create-patient'
 
 type Props = {
-  patients: PatientListItem[]
+  patients: MyAccessListItem[]
   onCreatePatient: (_prev: CreatePatientState, formData: FormData) => Promise<CreatePatientState>
 }
 
@@ -42,9 +42,9 @@ export function DashboardContent({ patients, onCreatePatient }: Props) {
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">Your patients</h1>
+          <h1 className="text-xl font-semibold">Your people</h1>
           <p className="text-sm text-muted-foreground">
-            {patients.length} {patients.length === 1 ? 'patient' : 'patients'} under your care
+            {patients.length} linked {patients.length === 1 ? 'record' : 'records'}
           </p>
         </div>
         <Button asChild size="sm" variant="outline" className="lg:hidden">
@@ -86,9 +86,14 @@ export function DashboardContent({ patients, onCreatePatient }: Props) {
                   })}
                 </p>
               </div>
-              <Badge variant={patient.admission_status === 'admitted' ? 'default' : 'secondary'}>
-                {patient.admission_status}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">
+                  {patient.role === 'coordinator' ? 'You manage' : 'Your care'}
+                </Badge>
+                <Badge variant={patient.admission_status === 'admitted' ? 'default' : 'secondary'}>
+                  {patient.admission_status}
+                </Badge>
+              </div>
             </Link>
           ))}
         </div>

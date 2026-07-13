@@ -8,9 +8,12 @@ import { togglePinPatient } from '@/actions/pin-patient'
 import { Logo } from '@/components/ui/logo'
 import { CoordinatorSidebarNav } from '@/components/features/CoordinatorSidebarNav'
 import { UserProfileMenu } from '@/components/features/UserProfileMenu'
-import { getCoordinatorPatients } from '@/lib/dal/patients'
+import { getMyAccessList } from '@/lib/dal/patients'
 
-export default async function CoordinatorLayout({
+// The one shell for every authenticated user, regardless of what role they
+// hold on any given record — "coordinator" is a per-patient permission, not
+// an account type. The only requirement to enter is a valid session.
+export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode
@@ -20,9 +23,9 @@ export default async function CoordinatorLayout({
   if (!user) redirect('/login')
 
   const profile = await getProfile(user.id)
-  if (!profile || profile.role !== 'coordinator') redirect('/login')
+  if (!profile) redirect('/login')
 
-  const patients = await getCoordinatorPatients(user.id)
+  const patients = await getMyAccessList(user.id)
   const initial  = profile.name?.[0]?.toUpperCase() ?? '?'
 
   return (

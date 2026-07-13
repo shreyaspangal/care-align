@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { getCoordinatorPatients } from '@/lib/dal/patients'
+import { getMyAccessList } from '@/lib/dal/patients'
 import { DashboardContent } from './DashboardContent'
 import { createPatient } from '@/actions/create-patient'
 
@@ -9,6 +9,6 @@ export default async function DashboardIndexPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const patients = await getCoordinatorPatients(user.id)
+  const patients = await getMyAccessList(user.id)
   return <DashboardContent patients={patients} onCreatePatient={createPatient} />
 }

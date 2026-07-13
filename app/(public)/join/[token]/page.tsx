@@ -12,7 +12,6 @@ import { AutoJoinForm } from './AutoJoinForm'
 import { PinEntryForm } from './PinEntryForm'
 import { JoinForm } from './JoinForm'
 import { getInviteByToken } from '@/lib/dal/invites'
-import { getProfile } from '@/lib/dal/profiles'
 import { getPatientAccess } from '@/lib/dal/patients'
 
 type Props = {
@@ -42,17 +41,13 @@ export default async function JoinPage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (user) {
-    const profile = await getProfile(user.id)
-
-    // Coordinator: go to their view without touching the token
-    if (profile?.role === 'coordinator') {
-      redirect(`/dashboard/${invite.patient_id}`)
-    }
-
-    // Patient who already has access (reload case): redirect directly
+    // Already has access to this specific patient (coordinator or patient
+    // role) — go straight to the unified record view without touching the
+    // token. One route tree, one login: which controls render is decided by
+    // the layout's own per-record role check, not by anything checked here.
     const existingAccess = await getPatientAccess(invite.patient_id)
     if (existingAccess) {
-      redirect(`/patient/${invite.patient_id}`)
+      redirect(`/dashboard/${invite.patient_id}`)
     }
 
     // Has a session but no access — check if token is still usable
@@ -74,7 +69,7 @@ export default async function JoinPage({ params }: Props) {
     // No PIN required — auto-redeem for the logged-in user
     const result = await redeemToken(token, user.id)
     if (!result.ok) return <ErrorPage message={result.error!} />
-    redirect(`/patient/${result.patientId}`)
+    redirect(`/dashboard/${result.patientId}`)
   }
 
   // ── Unauthenticated ─────────────────────────────────────────────────────────

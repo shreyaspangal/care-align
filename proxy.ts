@@ -1,11 +1,15 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { resolveHomePath } from '@/lib/auth/resolve-home-path'
 
 // Next.js 16: this file replaces middleware.ts. Export must be named `proxy`.
 // Runs on every matched request (nodejs runtime, not edge).
 // Two jobs:
 //   1. Keep the Supabase auth session alive by refreshing tokens on every request.
-//   2. Enforce role-based routing — patients cannot reach coordinator routes and vice versa.
+//   2. Route a logged-in user to their home path at /, /login, /register.
+// Per-record access (who can see /dashboard/{patientId}) is NOT this file's
+// job — every per-patient page/layout already checks getPatientAccess(patientId)
+// itself. One shell, one route tree; permissions are per record, not per path.
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
@@ -53,79 +57,13 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  if (user) {
-    // Fetch the user's role from profiles — not from the JWT, which may be stale.
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+  if (user && (pathname === '/' || pathname.startsWith('/login') || pathname.startsWith('/register'))) {
+    const { data: accessRows } = await supabase
+      .from('patient_access')
+      .select('patient_id')
+      .eq('user_id', user.id)
 
-    const role = profile?.role
-
-    // Rule 2: authenticated user at root → send to their role home.
-    if (pathname === '/') {
-      if (role === 'coordinator') {
-        return NextResponse.redirect(new URL('/dashboard', request.url))
-      }
-      if (role === 'patient') {
-        const { data: access } = await supabase
-          .from('patient_access')
-          .select('patient_id')
-          .eq('user_id', user.id)
-          .eq('role', 'patient')
-          .limit(1)
-          .single()
-        if (access?.patient_id) {
-          return NextResponse.redirect(new URL(`/patient/${access.patient_id}`, request.url))
-        }
-      }
-      return NextResponse.redirect(new URL('/login', request.url))
-    }
-
-    // Rule 4: patient trying to reach a coordinator route → redirect to their patient view.
-    // We look up their patient_access row to find their patientId, since /dashboard has
-    // no patientId in the path when coming from a post-login redirect.
-    if (role === 'patient' && pathname.startsWith('/dashboard')) {
-      const { data: access } = await supabase
-        .from('patient_access')
-        .select('patient_id')
-        .eq('user_id', user.id)
-        .eq('role', 'patient')
-        .limit(1)
-        .single()
-
-      if (access?.patient_id) {
-        return NextResponse.redirect(new URL(`/patient/${access.patient_id}`, request.url))
-      }
-      // No patient record linked — send to login
-      return NextResponse.redirect(new URL('/login', request.url))
-    }
-
-    // Rule 5: coordinator trying to reach a patient-only route → redirect to dashboard
-    if (role === 'coordinator' && pathname.startsWith('/patient')) {
-      const patientId = pathname.split('/')[2]
-      if (patientId) {
-        return NextResponse.redirect(new URL(`/dashboard/${patientId}`, request.url))
-      }
-    }
-
-    // Rule 6: logged-in user hitting /login or /register → send to their role home
-    if (pathname.startsWith('/login') || pathname.startsWith('/register')) {
-      if (role === 'patient') {
-        const { data: access } = await supabase
-          .from('patient_access')
-          .select('patient_id')
-          .eq('user_id', user.id)
-          .eq('role', 'patient')
-          .limit(1)
-          .single()
-        if (access?.patient_id) {
-          return NextResponse.redirect(new URL(`/patient/${access.patient_id}`, request.url))
-        }
-      }
-      return NextResponse.redirect(new URL('/dashboard', request.url))
-    }
+    return NextResponse.redirect(new URL(resolveHomePath(accessRows ?? []), request.url))
   }
 
   return response
