@@ -14,6 +14,47 @@ At the end of every build session, answer these three:
 
 ---
 
+## Documentation Architecture — Progressive Disclosure — 2026-07-13
+
+**What did I decide?**
+
+`CLAUDE.md` was a 320-line monolith: session-start orientation, working rules, incident histories, API gotchas, and governance meta all in one file. Every new session loaded all of it regardless of what was actually being built. The decision was to restructure into three layers with a clear job for each.
+
+**Layer 1 — `AGENTS.md`:** Cold-start orientation. Two minutes of reading covers: what the product is, current build status, the 5 silent-failure rules that have bitten this codebase, an anti-pattern quick-reference table, and a navigation index. This file answers "what is this and where do I start?" — not "what are the rules?"
+
+**Layer 2 — `CLAUDE.md`:** Rules reference. Hard rules only — the things that cause a silent production bug or a security breach if missed on the first line of a new session. Trimmed from 320 lines to 257: removed "What This Product Does" (redundant with AGENTS.md), collapsed Next.js 16 breaking-change items 1–3 into a single pointer line (full examples moved to ANTI_PATTERNS.md), removed the navigation table (moved to DATA_MODEL.md where it belongs contextually).
+
+**Layer 3 — `docs/ANTI_PATTERNS.md`:** 13 entries, new file. Each entry follows the same structure: what AI instinctively does → why it's wrong in this stack → what to do instead → working code example. Covers every pattern that has caused a real bug or will cause one silently: `middleware.ts` → `proxy.ts`, `generateObject` → `generateText + Output.object`, `getSession` → `getUser`, `mimeType` → `mediaType`, `params.id` → `await params`, plain `.upsert()` on episode_summaries, and the three RLS UPDATE/DELETE silent failures with their full incident history.
+
+The alternative framing was "write less documentation." That's wrong. The file count went up (three files instead of one). What changed is that each piece of context is loaded at the right moment instead of all at once.
+
+**What resisted me?**
+
+The pull toward expanding CLAUDE.md rather than restructuring it. Every rule "feels important" and therefore feels like it belongs at the top level. The instinct is additive: add a note here, add a section there. The discipline is knowing which file owns which type of content. Writing the governance table (appendix of CLAUDE.md, "where new rules and docs belong") forced explicit criteria before the restructuring rather than after, which made each cut easier to justify.
+
+Also: the YouTube video was inaccessible — WebFetch only returns nav and footer on JavaScript-rendered pages, no content. The principles had to come from the user pasting the transcript directly. The meta-lesson: when a resource is inaccessible, say so and ask for the content rather than reasoning around it from the URL alone.
+
+**What did I understand?**
+
+Progressive disclosure is not about writing less — it's about context arriving at the right moment. The enforcement stack and the documentation stack have the same failure mode: "I documented this" ≠ "this cannot be missed." A rule that only lives in a document gets read once and then drifts. The response for code rules was ESLint + pre-commit hooks. The response for documentation was layering: AGENTS.md loads at session start when no context exists, CLAUDE.md loads when writing code and rules matter, ANTI_PATTERNS.md loads when the specific pattern is in front of you. Same constraint, three feedback loops — each catching what the others miss.
+
+The navigation table belonged in DATA_MODEL.md because it answers "where do I look when confused about the data model?" — not "what are the rules?" A doc that answers two different questions for two different moments is doing two jobs and therefore does neither as well as it should.
+
+---
+
+## Unified Access Model — 2026-07-02
+
+**What did I decide?**
+Competitive research on onboarding (`docs/ONBOARDING_RESEARCH.md`) surfaced that CareAlign's coordinator/patient split into two separate route trees isn't validated by anything in the market — the products that actually solve "one person manages several people's health records" (MyChart, EkaCare) use one shell with per-record permissions, not two apps stitched together. First plan draft kept the two trees and added a `/me` switcher list bridging them; on review this was rejected as adding a third surface to link between two things that shouldn't have been separate. Rebuilt the plan around real unification instead: one route tree (`app/(app)/dashboard/[patientId]`), one auth gate, "coordinator" demoted from an account-level `profiles.role` to a per-record `patient_access.role` permission. Any authenticated user can now create a patient record and become its coordinator — there's no longer a role check gating that action. Alongside the unification, added the mitigations `docs/PRIVACY_TRUST_RESEARCH.md` called for: bilateral revocation (patient can revoke a coordinator; coordinator can self-revoke, guarded against orphaning a record with no other coordinator), and provenance tracking (`self_consented` vs `coordinator_attested`) so a grant's origin is never collapsed into one undifferentiated case.
+
+**What resisted me?**
+Realizing mid-plan that `app/(coordinator)/layout.tsx` — the file I was about to gate less strictly — was already, functionally, the "my people" list I thought I needed to build separately (`CoordinatorSidebarNav` just needed the full access list instead of a coordinator-only one). The instinct to add new UI surfaces for a new concept was strong even after deciding against the `/me` page; the actual fix in several places was deleting an account-level check, not adding a new component. Also hit a real gap the plan didn't anticipate: `profiles` had no SELECT policy beyond `id = auth.uid()`, so the new "who has access" list would have silently rendered blank coordinator names without an additional RLS policy — found only by re-reading the plan against the actual RLS file, not by trusting the plan's own confidence.
+
+**What did I understand?**
+The account-level `profiles.role` was never really "the user's role" — `RegisterForm.tsx` hardcodes `role: 'coordinator'` for the only general-signup path, and `'patient'` only ever gets set via the invite-redemption flow. It was always describing "which page this account's first screen looked like," not an access grant. Once that framing was clear, retiring it as a security boundary (keeping it only as a display/history artifact) stopped feeling like a risky simplification and started feeling like removing a check that was never doing the job its name implied.
+
+---
+
 ## Coordinator Shell + Upload UX — 2026-06-16
 
 **What did I decide?**
