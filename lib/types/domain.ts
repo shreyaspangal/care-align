@@ -6,6 +6,7 @@
 
 export type UserRole = 'coordinator' | 'patient'
 export type PreferredLanguage = 'en' | 'hi' | 'kn' | 'ta' | 'te' | 'mr'
+export type AccessProvenance = 'self_consented' | 'coordinator_attested'
 
 // ─── Patient ──────────────────────────────────────────────────────────────────
 

@@ -1,6 +1,7 @@
 import 'server-only'
 import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
+import type { UserRole, AccessProvenance } from '@/lib/types/domain'
 
 export type PatientDetail = {
   id: string
@@ -18,14 +19,6 @@ export const getPatient = cache(async (patientId: string): Promise<PatientDetail
   return data ?? null
 })
 
-export type PatientListItem = {
-  id: string
-  name: string
-  admission_status: string
-  date_of_birth: string
-  pinned_at: string | null
-}
-
 export const getPatientAccess = cache(async (patientId: string): Promise<{ role: string } | null> => {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -39,19 +32,6 @@ export const getPatientAccess = cache(async (patientId: string): Promise<{ role:
   return data ?? null
 })
 
-export const getFirstPatientId = cache(async (userId: string): Promise<string | null> => {
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from('patient_access')
-    .select('patient_id')
-    .eq('user_id', userId)
-    .eq('role', 'patient')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  return data?.patient_id ?? null
-})
-
 export const getPatientAccessCount = cache(async (patientId: string, role: 'coordinator' | 'patient'): Promise<number> => {
   const supabase = await createClient()
   const { count } = await supabase
@@ -62,24 +42,68 @@ export const getPatientAccessCount = cache(async (patientId: string, role: 'coor
   return count ?? 0
 })
 
-// Cached per request — if called from both the sidebar layout and the
+export type MyAccessListItem = {
+  id: string
+  name: string
+  admission_status: string
+  date_of_birth: string
+  pinned_at: string | null
+  role: UserRole
+}
+
+// Cached per request — if called from both the shell layout and the
 // dashboard page in the same render, Supabase is only hit once.
+// Every patient_access row the caller holds, both roles — this is the
+// unified "my people" list (replaces the old coordinator-only list and the
+// single-row patient lookup; one login, one list, permission per record).
 // Sort: pinned first, then by most recent access row (proxy for activity).
-// Closed-episode patients are returned but marked — sidebar filters them out.
-export const getCoordinatorPatients = cache(async (userId: string): Promise<PatientListItem[]> => {
+// Closed-episode patients are returned but marked — the sidebar filters them out.
+export const getMyAccessList = cache(async (userId: string): Promise<MyAccessListItem[]> => {
   const supabase = await createClient()
 
   const { data: accessRows } = await supabase
     .from('patient_access')
-    .select(`pinned_at, patients(id, name, admission_status, date_of_birth)`)
+    .select(`role, pinned_at, patients(id, name, admission_status, date_of_birth)`)
     .eq('user_id', userId)
-    .eq('role', 'coordinator')
     .order('pinned_at', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
 
   return (accessRows ?? []).flatMap(r => {
     const p = Array.isArray(r.patients) ? r.patients[0] : r.patients
     if (!p) return []
-    return [{ ...p, pinned_at: r.pinned_at ?? null }]
+    return [{ ...p, pinned_at: r.pinned_at ?? null, role: r.role }]
+  })
+})
+
+export type PatientCoordinator = {
+  userId: string
+  name: string | null
+  provenance: AccessProvenance
+  grantedAt: string
+}
+
+// "Who has access to this record" — consumed by the patient-visible access
+// list. Relies on the two RLS policies added in
+// 20260702000000_patient_access_provenance_and_revocation.sql (patient can
+// SELECT coordinator rows for their own patient_id; profiles SELECT for
+// co-access users). Returns [] for a coordinator caller today — a
+// coordinator-facing "care team" view is a separate, later feature.
+export const getPatientCoordinators = cache(async (patientId: string): Promise<PatientCoordinator[]> => {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('patient_access')
+    .select(`user_id, provenance, created_at, profiles(name)`)
+    .eq('patient_id', patientId)
+    .eq('role', 'coordinator')
+    .order('created_at', { ascending: true })
+
+  return (data ?? []).map(r => {
+    const profile = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles
+    return {
+      userId: r.user_id,
+      name: profile?.name ?? null,
+      provenance: r.provenance,
+      grantedAt: r.created_at,
+    }
   })
 })
