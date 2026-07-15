@@ -22,10 +22,10 @@
     --color-brand-on:         var(--brand-on);
     --color-brand-tint:       var(--brand-tint);
     --color-brand-border:     var(--brand-border);
-    --color-patient-base:     var(--patient-base);
-    --color-patient-on:       var(--patient-on);
-    --color-patient-tint:     var(--patient-tint);
-    --color-patient-surface:  var(--patient-surface);
+    --color-accent-base:     var(--accent-base);
+    --color-accent-on:       var(--accent-on);
+    --color-accent-tint:     var(--accent-tint);
+    --color-accent-surface:  var(--accent-surface);
     --color-ai-base:          var(--ai-base);
     --color-ai-tint:          var(--ai-tint);
     --color-success-base:     var(--success-base);
@@ -111,17 +111,17 @@
     --sidebar-border: oklch(0.91 0.006 90);
     --sidebar-ring: oklch(0.44 0.11 183);
 
-    /* ── Brand tokens (coordinator role) ── */
+    /* ── Brand tokens (product identity) ── */
     --brand-base:   oklch(0.44 0.11 183);
     --brand-on:     oklch(0.98 0.01 183);
     --brand-tint:   oklch(0.96 0.025 183);
     --brand-border: oklch(0.88 0.055 183);
 
-    /* ── Patient role tokens ── */
-    --patient-base:    oklch(0.55 0.09 42);
-    --patient-on:      oklch(0.98 0.01 42);
-    --patient-tint:    oklch(0.94 0.04 42);
-    --patient-surface: oklch(0.98 0.012 42);
+    /* ── Accent tokens (warm highlight) ── */
+    --accent-base:    oklch(0.55 0.09 42);
+    --accent-on:      oklch(0.98 0.01 42);
+    --accent-tint:    oklch(0.94 0.04 42);
+    --accent-surface: oklch(0.98 0.012 42);
 
     /* ── AI processing tokens ── */
     --ai-base: oklch(0.52 0.10 258);
@@ -184,10 +184,10 @@
     --brand-tint:   oklch(0.22 0.05 183);
     --brand-border: oklch(0.30 0.08 183);
 
-    --patient-base:    oklch(0.70 0.09 42);
-    --patient-on:      oklch(0.12 0.02 42);
-    --patient-tint:    oklch(0.22 0.05 42);
-    --patient-surface: oklch(0.18 0.04 42);
+    --accent-base:    oklch(0.70 0.09 42);
+    --accent-on:      oklch(0.12 0.02 42);
+    --accent-tint:    oklch(0.22 0.05 42);
+    --accent-surface: oklch(0.18 0.04 42);
 
     --ai-base: oklch(0.65 0.10 258);
     --ai-tint: oklch(0.22 0.05 258);
