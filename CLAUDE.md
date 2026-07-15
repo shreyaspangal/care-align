@@ -1,255 +1,86 @@
-# CareAlign — Rules Reference
+# CareAlign v2 — Rules Reference
 
-> New session? Read `AGENTS.md` first — it has orientation, current status, and the anti-patterns cheat sheet.
-> This file is the rules layer: what governs every code change in this repo.
+> New session? Read `AGENTS.md` first — orientation, current status, anti-pattern cheat sheet.
+> This file is the rules layer: what governs every code change. Design: `docs/SYSTEM_DESIGN.md`. Process: `docs/PRACTICES.md`. Sequence: `docs/BUILD_PLAN.md`.
 
 ---
+
+## What we are building (one paragraph)
+
+One family account (Netflix-style) holds profiles for each family member — no per-member logins, no roles. Members capture medical documents (photos/PDFs); AI **organizes and explains** them into a per-person timeline; the family retrieves the right record when a doctor asks (search + visit brief) and manages upcoming appointments. The wedge is **retrieval at the doctor-visit moment**, not storage.
 
 ## Stack
 
 ```
-Next.js 16 App Router + React 19.2 + TypeScript   (Turbopack default)
-Supabase (Postgres + Auth + RLS)
-Vercel Blob (private file storage)
-Claude API via Vercel AI SDK (structured output + Zod)
-Shadcn/UI (radix-nova) + Tailwind v4
-Upstash Redis (rate limiting)
-Deployed on Vercel
+Next.js 16 App Router + React 19 + TypeScript (Turbopack)
+Supabase (Postgres + Auth + RLS) — one auth user = one family
+File storage: OPEN — DECISIONS.md D-003, resolve before any capture code
+Claude via Vercel AI SDK v6 (generateText + Output.object)
+Shadcn/UI + Tailwind v4 (role-free tokens: brand / accent / ai / success)
+PostHog (analytics + replay + errors + flags), Resend (email)
 ```
 
-### Next.js 16 — Breaking Changes vs. Training Data
+**Next.js 16 vs. training data:** `proxy.ts` not `middleware.ts`; `cookies()`/`headers()`/route `params` are async; `useActionState` is `(_prev, formData)` — forgetting `_prev` silently shifts args. When unsure read `node_modules/next/dist/docs/`. Full list: `docs/ANTI_PATTERNS.md`.
 
-This is Next **16**, not 15. The traps that bite most often:
-
-1. **`middleware.ts` → `proxy.ts`; `cookies()` and route `params` are async.** Full examples: `docs/ANTI_PATTERNS.md` entries 1, 7, 11.
-2. **`revalidateTag` needs a `cacheLife` arg**; new `updateTag`/`refresh` exist for Server Actions.
-3. **`useActionState` signature is `(_prev, formData)`**, not `(formData)`. Returns `[state, action, isPending]`. Forgetting `_prev` shifts the args and `formData` becomes the previous state object — silent wrong behaviour, no type error.
-
-Path alias `@/*` → repo root (no `src/`). When unsure, read `node_modules/next/dist/docs/`.
-
----
-
-## Key Files and Where Things Live
-
-| What | Where |
-|------|-------|
-| All architectural decisions (ADRs) | `docs/ARCHITECTURE.md` |
-| Full Postgres schema + RLS policies | `docs/DATA_MODEL.md` |
-| AI prompts, Zod schemas, model config | `docs/AI_BEHAVIOUR.md` |
-| Component definitions and prop types | `docs/COMPONENT_PLAN.md` |
-| Anti-patterns with worked examples | `docs/ANTI_PATTERNS.md` |
-| Day-by-day build sequence | `docs/BUILD_PLAN.md` |
-| Testing plan + CI setup | `docs/TESTING.md` |
-| Model map (Haiku dev / Sonnet prod) | `lib/ai/models.ts` |
-| File validation logic | `lib/storage/validate.ts` |
-| Rate limiter | `lib/ratelimit.ts` |
-| Authenticated Blob file serving | `app/api/documents/[documentId]/file/route.ts` |
-| Episode summary upsert (version-safe) | `lib/db/episode-summaries.ts` |
-| Auth trigger for profile creation | `supabase/migrations/` |
-
----
-
-## Supabase — Two Access Control Layers (Both Must Pass)
-
-Supabase requires **two separate access control layers**. RLS policies alone are not enough — table-level GRANTs must also be present, and vice versa.
-
-Every migration that creates a new table **must** include:
-
-```sql
--- Without this, authenticated users cannot access the table at all
-GRANT SELECT, INSERT, UPDATE, DELETE ON table_name TO authenticated;
-GRANT ALL ON table_name TO service_role;
-```
-
-For any trigger that writes to `public.*` tables (like `handle_new_user`):
-
-```sql
-GRANT INSERT ON public.profiles TO supabase_auth_admin;
-GRANT EXECUTE ON FUNCTION public.handle_new_user() TO supabase_auth_admin;
-ALTER FUNCTION public.handle_new_user() OWNER TO postgres;
-```
-
-**The silent failure pattern:** A `.update()` or `.delete()` that returns `{ error: null }` but writes 0 rows means the GRANT exists but no RLS UPDATE/DELETE policy covers the caller. Both layers must pass. This has silently failed 3 times in this codebase — always check. After writing any `.update()` or `.delete()`, grep migrations for `FOR UPDATE` or `FOR DELETE` on that table.
-
-Full incident history and fix patterns: `docs/ANTI_PATTERNS.md` → entry 13.
-
-**Chicken-and-egg on patient creation:** RLS on `patients` requires a `patient_access` row, but that row can't exist until the patient is created. Use `createServiceClient()` (service role, bypasses RLS) for the initial `patients` insert, then immediately insert `patient_access`. All subsequent queries use `createClient()`. See `actions/create-patient.ts`.
+Path alias `@/*` → repo root (no `src/`).
 
 ---
 
 ## Hard Rules — Do Not Violate
 
-1. **No Claude calls client-side.** All AI calls happen in Server Actions or API Routes only. `ANTHROPIC_API_KEY` never reaches the browser.
+1. **Explain, never advise.** AI output describes what a document says and defines terms. It NEVER assesses severity, compares to norms, recommends actions, or interprets clinically. Advisory language in any AI output is a hard eval failure regardless of accuracy (`docs/PRACTICES.md` §6). This is the product's safety boundary and its legal one.
 
-2. **No raw Blob URLs returned to client.** Files are served through `/api/documents/[documentId]/file` which enforces RLS before returning a signed URL.
+2. **Verbatim-or-null extraction.** Extracted fields (dates, names, medications, tests) are copied as written on the document or left `null`. Never inferred, normalized into existence, or defaulted (no upload-date-as-document-date, no empty strings). UI renders nulls honestly ("Date unknown").
 
-3. **Use `AI_MODELS.classify/translate/summarise` from `lib/ai/models.ts`.** Never hardcode a model string. `AI_MODEL_TIER=development` uses Haiku, `production` uses Sonnet.
+3. **Capture is sacred.** Once a document is captured it is never deleted or hidden by the pipeline. AI failure → `status = 'needs_review'`, document stays visible with manual-fix affordance. Only the user deletes.
 
-4. **Components are built from the existing primitive layer.** Do not create new primitive components without updating `docs/COMPONENT_PLAN.md`. When building composites or features, use only: `DocumentTypeTag`, `EpisodeStatusBadge`, `TaskCategoryIcon`, `TranslationStatusIndicator`.
+4. **No roles.** There is no coordinator, no patient-as-role, no permission tiers inside a family. One account = one family; profiles are people, not users. The words `coordinator`/`patient` are banned from identifiers, routes, tokens, and copy (a profile *is* somebody's medical record — "patient" as a clinical noun in AI extraction fields like `patient_name_as_written` is fine).
 
-5. **Supabase table is `profiles`, not `users`.** Auth is in `auth.users`. The public schema has `profiles` which references `auth.users(id)`. All application queries go to `profiles`.
+5. **`family_id` on every table + two-layer access control.** Every table carries denormalized `family_id`; RLS policies compare it to `current_family_id()` without joins. Every migration creating a table includes BOTH layers — `GRANT ... TO authenticated` / `GRANT ALL ... TO service_role` AND RLS policies for every verb used. A `.update()`/`.delete()` returning `{ error: null }` with 0 rows written means a missing policy — this silently failed 3 times in v1 (`docs/ANTI_PATTERNS.md` §1).
 
-6. **`document.status` drives the upload pipeline.** Transitions: `pending_classification` → `classified` → `translated`. Failure at any step sets `status = 'failed'` and returns — never deletes the record.
+6. **No AI calls client-side.** All model calls run in Server Actions, Route Handlers, or `after()`. `ANTHROPIC_API_KEY` never reaches the browser.
 
-7. **`episode_summaries.version` increments via the `upsert_episode_summary` RPC.** Do not use a plain `.upsert()` — it will reset the version counter. See `lib/db/episode-summaries.ts`.
+7. **No raw storage URLs to the client.** Files are served through the authenticated document-file route, which checks family membership before returning a signed URL.
 
-8. **`document_date` and `purpose` and `source_hospital` are nullable.** Claude may not be able to extract them. The UI shows "Date unknown" / "Processing..." — it never defaults to upload date or empty string.
+8. **Data fetching in pages/layouts goes through `lib/dal/` only.** No `supabase.from()` in `page.tsx`/`layout.tsx`; DAL functions are `cache()`-wrapped. `supabase.auth.getUser()` inline is fine (auth, not data). Layouts that render data check access themselves — never rely on child pages.
 
-9. **Silence is valid.** `actions: []` is a correct translation output. Do not add logic to manufacture tasks when Claude returns none.
+9. **Client components never import server actions.** Parent RSC injects them as props; stories use `fn()` from `storybook/test`. `import type` is allowed.
 
-10. **V1 scope boundary.** These are NOT in V1 — do not build them:
-    - Automatic medication extraction
-    - Hospital system integration
-    - Regional language support
-    - Voice interaction
-    - ABDM / Eka Care integration (unless API access arrives before ship)
+10. **DB-aligned union types live in one module** (`lib/types/domain.ts` when created) and are imported everywhere — never redefined inline.
 
-11. **Client components never import server actions directly.** Server actions are injected as props by the parent RSC page or layout. Stories pass `fn()` from `storybook/test`. Direct imports pull `next/cache`, `next/headers`, and other Node-only modules into Vite's ESM bundler, crashing Storybook and the test runner. Pattern and worked example: `docs/COMPONENT_PLAN.md` — Server Action Injection Pattern. **`pnpm lint:arch` enforces this** — `carealig/no-client-action-import` blocks any `import { fn }` from `@/actions/*` in a `'use client'` file. `import type { ... }` is allowed (type-only, erased at compile time).
+11. **AI SDK structured output = `generateText + Output.object({ schema })`.** `generateObject`/`streamObject` are deprecated. Result: `result.experimental_output`. Error: `NoOutputGeneratedError`. FilePart uses `mediaType`.
 
-12. **Data fetching in pages and layouts goes through `lib/dal/` only.** RSC pages and layouts must not call `supabase.from('table')` directly. All table queries belong in `lib/dal/*.ts` functions, which are `cache()`-wrapped for deduplication within a render cycle. `supabase.auth.getUser()` is allowed inline (auth, not data). **`pnpm lint:arch` enforces this** — `carealig/no-supabase-table-query-in-pages` blocks `.from(stringLiteral)` in any `page.tsx` or `layout.tsx`. The DAL boundary is also a privacy boundary: centralising queries makes data access auditable.
+12. **No hardcoded model strings.** Use the model map (`lib/ai/models.ts` when created); dev/prod tiers via env.
 
-    **Auth gate rule for layouts:** Any RSC layout that renders data in its own output (headers, nav, context panels) must check `patient_access` before rendering that data — not rely on child pages to check. A child page's auth check does not prevent the layout's own output from being rendered first. The correct pattern: layout checks auth → shows friendly error or renders children.
+13. **Design tokens only.** No raw `oklch()`/`#hex`/`rgb()` in `className` or `style`. Namespaces: `brand`, `accent`, `ai`, `success` (see `app/globals.css`).
 
-13. **All DB-aligned union types live in `lib/types/domain.ts` only.** Never redefine `DocumentType`, `EpisodeStatus`, `TaskCategory`, `TranslationStatus`, `DocumentStatus`, `ActionFor`, `TaskPhase`, `TaskStatus`, `UserRole`, or `AdmissionStatus` inline in any component, action, or other lib file. Import them. `pnpm lint:arch` enforces this — a violation causes silent type drift when a DB enum changes.
+14. **No dependency or architectural choice without a `docs/DECISIONS.md` entry** — context, options table, choice, why, revisit trigger. `Status: OPEN` entries block the phase that needs them (D-003 blocks capture).
 
-14. **AI SDK structured output uses `generateText + Output.object({ schema })`.** `generateObject` and `streamObject` are `@deprecated` in `ai@6+`. The result is `result.experimental_output` (typed). The error to catch is `NoOutputGeneratedError`, not `NoObjectGeneratedError`. File input uses `mediaType` (not `mimeType`) on the `FilePart`. See `lib/ai/classify.ts` for the canonical pattern. `pnpm lint:arch` enforces this — using deprecated APIs fails CI.
+15. **V1 scope boundary.** NOT in V1 — do not build: medical advice of any kind, medication tracking/reminders-for-doses, regional-language UI, hospital/insurance discovery (V2), ABDM integration, per-profile logins, sharing outside the family, natural-language ask (V1.5, behind the north-star trigger).
 
 ---
 
-## Data Model — Quick Reference
+## Enforcement
 
-```
-auth.users (Supabase Auth)
-  └─► profiles (id, name, role, preferred_language)
-        └─(patient_access)─► patients
-                                └─► episodes
-                                      ├─► documents
-                                      │     └─► document_translations (prompt_version)
-                                      │               └─► document_actions
-                                      ├─► episode_summaries (version, updated_at)
-                                      └─► pending_tasks (source_action_id nullable)
-```
-
-RLS enforces: coordinator = full read/write, patient = read-only on translations + summaries + tasks only.
-
-### Three concepts that look similar but are not
-
-| Concept | Table | Contains | Created by |
-|---------|-------|----------|------------|
-| Authentication | `auth.users` (Supabase-managed) | email, password hash, session | Supabase on signup |
-| Profile | `profiles` | name, role, language | `handle_new_user` trigger — automatic |
-| Access grant | `patient_access` | user_id + patient_id + role | coordinator explicitly, per patient |
-
-`profiles.role` = what kind of user they signed up as (their default).
-`patient_access.role` = what they are **for a specific patient** (coordinator or patient of that record).
-These can differ — a coordinator of one patient could be a patient in another record.
-
-### Enum types — what they belong to
-
-| Working on… | Relevant enums | Table |
-|-------------|---------------|-------|
-| Auth / login / signup | `user_role`, `preferred_language` | `profiles`, `patient_access` |
-| Patient record | `admission_status` | `patients` |
-| Episode lifecycle | `episode_status` | `episodes` |
-| Document upload + AI pipeline | `document_type`, `document_status` | `documents` |
-| AI output — actions | `action_for`, `category`, `phase_appears`, `action_status` | `document_actions` |
-| Task list | `action_for`, `task_category`, `task_phase`, `task_status` | `pending_tasks` |
-
----
-
-## AI Pipeline — Step Order
-
-```
-validate file (MIME + size) → rate limit check → upload to Vercel Blob
-→ create Document (status: pending_classification)
-→ Claude: classify → update Document (status: classified)
-→ Claude: translate → create DocumentTranslation + DocumentActions + PendingTasks (status: translated)
-→ Claude: regenerate EpisodeSummary (non-fatal — failure keeps previous version)
-```
-
-If any step throws: set `document.status = 'failed'`, return error to UI, do not delete the record.
-
----
-
-## Architecture Enforcement
-
-Run `pnpm lint:arch` before committing. The pre-commit hook runs the same checks automatically — activated via `git config core.hooksPath .githooks` (runs on `pnpm install` via the `prepare` script).
-
-`pnpm lint:arch` runs three checks in sequence:
-
-| Step | What it catches |
-|------|-----------------|
-| `tsc --noEmit` | All TypeScript type errors including unused variables and parameters |
-| `eslint` (8 custom `carealig/` rules) | Hard Rules 11–14 and more — see `eslint.config.mjs` for implementations |
-| `node scripts/check-stories.mjs` | Missing or stale `.stories.tsx` alongside any component |
-
-A PostToolUse hook in `.claude/settings.json` fires `pnpm lint:arch` automatically when you write a component or action file.
-
-**Design tokens:** Use token-based Tailwind classes only — no raw `oklch()`, `#hex`, or `rgb()` in `className` or `style`. Namespaces: `brand` (coordinator), `patient`, `ai`, `success`. Suffix pattern (`-base`/`-on`/`-tint`/`-border`/`-surface`) and full token table: `docs/COMPONENT_PLAN.md`. The `carealig/no-raw-color-values` ESLint rule blocks violations at CI.
-
-### Phase exit gate — run before starting the next phase
-
-Every phase must be closed in this order:
-
-1. `pnpm tsc --noEmit` — zero type errors
-2. `pnpm lint:arch` — all checks green
-3. `pnpm test` — all tests pass
-4. Update `docs/CONTENT_LOG.md` — answer the three questions for the phase
-5. Commit in **layer groups** — never one mega-commit (see below)
-6. `git status` clean — nothing uncommitted before proceeding
-
-### Commit grouping — by layer, not by phase
-
-| Layer | What goes in | Example message |
-|-------|-------------|-----------------|
-| 1 — Schema / migration | SQL migrations only | `feat: add pinned_at column to patient_access` |
-| 2 — DAL | New/updated `lib/dal/*.ts` functions | `refactor: expand DAL — profiles, invites, patients` |
-| 3 — Actions | New/updated `actions/*.ts` | `feat: pin-patient server action` |
-| 4 — Enforcement | ESLint rules, lint scripts, CI config | `refactor: add ESLint boundary rules` |
-| 5 — Components + stories | Component file paired with its story | `refactor: inject server actions as props (Hard Rule 11)` |
-| 6 — Pages / layouts | RSC wrappers, route-level data fetching | `refactor: migrate pages and layouts to DAL boundary` |
-| 7 — Documentation | CLAUDE.md, CONTENT_LOG.md, docs/ | `docs: architecture enforcement audit` |
-
-Not every layer needs a commit — only layers that changed. Two layers may be combined when tightly coupled.
-
----
+`pnpm lint:arch` (tsc + custom ESLint rules + check-stories) runs pre-commit (`.githooks`) and in CI. Red CI blocks the phase gate. Phase exit = `docs/PRACTICES.md` §8 checklist, run literally. Commits are layer-grouped (schema / dal / actions / enforcement / components / pages / docs) and **founder-confirmed — never auto-commit**.
 
 ## Stop Conditions
 
-- **New component, no story pattern yet** — stop, propose interface + story states, wait for sign-off.
-- **Primitive missing from Shadcn** — stop, propose it in `docs/COMPONENT_PLAN.md`, wait for sign-off.
-- **Schema missing for a new action/form** — stop, define it in `lib/validation/schemas.ts` first.
+- New primitive component with no story pattern → propose interface + states, wait for sign-off.
+- New action/form with no Zod schema → define schema first (`lib/validation/schemas.ts` when created).
+- Any OPEN decision blocking the current step → resolve or escalate, don't assume.
+- Anything that would widen scope past Rule 15 → flag it, don't build it.
 
----
+## Key Docs
 
-## Key Pointers
-
-- Form handling contract (7 rules, worked example): `docs/FORMS.md`
-- Component primitives catalogue: `docs/COMPONENT_PLAN.md`
-- Logging pattern (`createLogger`): `lib/logger.ts`
-- All schemas (single source of truth): `lib/validation/schemas.ts`
-
----
-
-## Testing and Environment
-
-Testing detail: `docs/TESTING.md`. Environment variables: `.env.example`.
-
----
-
-## Appendix — Where New Rules and Docs Belong
-
-Decide before writing. The test: if removing the rule from CLAUDE.md means the first line of code in a new session could silently be wrong — keep it here. If it only matters once a specific file is open — a pointer is enough.
-
-| What you're documenting | Right place | Wrong place |
-|------------------------|-------------|-------------|
-| A rule that causes a **silent, irreversible bug** if missed (auth grants, RLS, version counter) | **CLAUDE.md** | docs/ |
-| A **security boundary** that must hold on every turn (no client-side AI calls, no raw Blob URLs) | **CLAUDE.md** | docs/ |
-| A **scope constraint** that prevents entire feature categories (V1 boundary) | **CLAUDE.md** | docs/ |
-| A **breaking-change gotcha** for this stack (Next 16 async params, proxy.ts) | **CLAUDE.md** | docs/ |
-| **Anti-patterns** — things tried, rolled back, and why | **docs/ANTI_PATTERNS.md** — pointer in CLAUDE.md | CLAUDE.md inline |
-| A **pattern with a worked example** (forms, migrations, AI prompts) | **docs/FORMS.md, docs/AI_BEHAVIOUR.md, etc.** — pointer in CLAUDE.md | CLAUDE.md inline |
-| A **catalogue or reference** (component props, enum values, ER diagram) | **docs/** | CLAUDE.md |
-| Something already **enforced by a lint script or hook** | Pointer only in CLAUDE.md | Full detail in CLAUDE.md |
-| **Environment variables** | **.env.example** | CLAUDE.md |
-| **Testing setup** | **docs/TESTING.md** | CLAUDE.md |
+| Need | File |
+|---|---|
+| Full design (routes, schema, pipeline, diagrams) | `docs/SYSTEM_DESIGN.md` |
+| Engineering process + phase-gate checklist + tracking plan | `docs/PRACTICES.md` |
+| Decision records (stack choices + rationale) | `docs/DECISIONS.md` |
+| Build sequence + exit criteria | `docs/BUILD_PLAN.md` |
+| Anti-patterns (scar tissue) | `docs/ANTI_PATTERNS.md` |
+| Claude Code workflow (subagents, models, skills) | `docs/AGENTIC_WORKFLOW.md` |
+| Design review lens (Impeccable + PDP checklists) | `docs/DESIGN_REVIEW_LENS.md` |
+| Session retro journal | `docs/CONTENT_LOG.md` |
+| v1 documentation (read-only history) | `docs/archive/carealign-v1/` |

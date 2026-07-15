@@ -6,113 +6,73 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ---
 
-# CareAlign — Agent Orientation
+# CareAlign v2 — Agent Orientation
 
-> Read this before writing any code. Two minutes here prevents discovering hard-won rules the slow way.
-> Deep rules → `CLAUDE.md`. Architecture decisions → `docs/ARCHITECTURE.md`. Everything else → `docs/`.
+> Read this before writing any code. Deep rules → `CLAUDE.md`. Design → `docs/SYSTEM_DESIGN.md`. Sequence → `docs/BUILD_PLAN.md`.
 
 ---
 
 ## What This Is
 
-A coordinator uploads medical documents from an active hospitalisation. Claude classifies and translates each one into plain language — producing a living episode summary that both the coordinator and the patient can read.
+A family's health history, organized and retrievable when the doctor asks. One account = one family (Netflix-style); family members are **profiles**, not users — no per-member logins, no roles. Capture a medical document → AI organizes and **explains** it (never advises) → it lands on that person's timeline → the family retrieves it via search or a printable **visit brief**, and manages upcoming appointments.
 
-One route tree, one login. "Coordinator" is a permission on a specific patient record (`patient_access.role`), not an account type — the same person can hold full access to one relative's record and read-only access to their own, at the same time. See `docs/ARCHITECTURE.md` ADR-013.
+This is a **greenfield rebuild in the same repo**. v1 (coordinator/patient episode tool) was torn down 2026-07-15; its docs live read-only in `docs/archive/carealign-v1/`. The chassis survived: `components/ui/` primitives, the ESLint enforcement stack, `lib/{logger,ratelimit,utils,storage,supabase}`, configs.
 
----
+## Build Status (2026-07-15)
 
-## Build Status (2026-07-02)
+**Phase 0 (reset) in progress.** Nothing of v2 is built yet. Sequence and exit criteria: `docs/BUILD_PLAN.md`.
 
-V1 is **feature-complete**. Every phase in `docs/BUILD_PLAN.md` has shipped, plus a foundation-phase rework moving from account-level to per-record access (ADR-013).
+| Phase | What | Status |
+|---|---|---|
+| 0 | Teardown, docs, CI, chassis rename | ← in progress |
+| 1 | Foundation: schema, RLS, auth, profiles; resolve D-003 (file storage) | pending |
+| 2 | Capture + organize pipeline + eval set | pending |
+| 3 | Timeline + retrieval (visit brief mocked FIRST) | pending |
+| 4 | Visit brief + appointments + reminders | pending |
+| 5 | Onboarding, landing, polish | pending |
+| 6 | Dogfood with the founder's family | pending |
 
-| Feature | Status |
-|---------|--------|
-| Auth (login / register / logout) | ✓ Done |
-| Unified dashboard shell + sidebar nav (any role) | ✓ Done |
-| Patient invite flow (`/join/[token]`) | ✓ Done |
-| Document upload → AI classify → translate | ✓ Done |
-| Episode summary + tasks | ✓ Done |
-| Per-record patient view (read-only) + Access tab (bilateral revocation) | ✓ Done |
-| Enforcement stack (8 ESLint rules + pre-commit) | ✓ Done |
+**Blocked on founder:** PostHog project creation; new Supabase project credentials (Phase 1); D-003 spike sign-off.
 
-**Next work unit:** Determine next direction — candidates are an "invite a second coordinator" flow (self-revoke is currently a near-universal no-op without one) and the onboarding-checklist UI (`docs/ONBOARDING_RESEARCH.md`).
+## The Non-Negotiables (full list: CLAUDE.md)
 
----
-
-## The 5 Silent-Failure Rules
-
-These return `{ error: null }` while writing nothing. No type error. No crash. Just 0 rows updated.
-
-**1. RLS and GRANT are separate layers.**
-A `.update()` or `.delete()` that returns success but writes 0 rows means the table has no RLS UPDATE/DELETE policy — even if the column-level GRANT exists. After writing any `.update()` or `.delete()`, grep migrations for `FOR UPDATE` or `FOR DELETE` on that table. If absent, the operation silently fails.
-
-**2. Chicken-and-egg on patient creation.**
-RLS on `patients` requires a `patient_access` row to exist. But that row can't exist before the patient is created. Fix: use `createServiceClient()` (service role, bypasses RLS) for the initial `patients` insert, then immediately insert `patient_access`. All subsequent queries use `createClient()` and RLS applies correctly from that point.
-
-**3. Episode summary version counter.**
-Plain `.upsert()` on `episode_summaries` resets the version counter to 1. Always use `upsertEpisodeSummary()` from `lib/db/episode-summaries.ts`, which calls the `upsert_episode_summary` RPC.
-
-**4. `getUser()` not `getSession()`.**
-`getSession()` trusts the session cookie without validating it with Supabase Auth servers. `getUser()` validates the JWT. Use `getUser()` in `proxy.ts`, server actions, and route handlers.
-
-**5. Store `blob.pathname`, never `blob.url`.**
-The URL is not stable across Blob store migrations. Only store the `pathname`. Reconstruct a fresh signed URL at read time via `lib/storage/blob.ts`.
-
----
+1. **Explain, never advise** — advisory language in AI output is a hard failure.
+2. **Verbatim-or-null** — extracted fields are copied as written or left null, never inferred.
+3. **Capture is sacred** — pipeline failure sets `needs_review`; documents are never hidden/deleted by code.
+4. **No roles** — `coordinator`/`patient` (as a role) are banned words in identifiers, routes, and copy.
+5. **Two-layer access control** — every table: GRANTs AND RLS policies, `family_id` denormalized everywhere.
 
 ## Anti-Pattern Quick Reference
 
-What AI instinctively reaches for that is wrong in this stack:
+What AI instinctively reaches for that is wrong in this stack (details: `docs/ANTI_PATTERNS.md`):
 
 | Don't | Do instead | Why |
 |-------|-----------|-----|
 | `middleware.ts` | `proxy.ts` | Renamed in Next 16 |
-| `generateObject()` | `generateText + Output.object({ schema })` | Deprecated in AI SDK v6 |
-| `streamObject()` | Not used in V1 | Deprecated in AI SDK v6 |
-| `getSession()` | `getUser()` | Validates JWT, not just cookie |
-| `mimeType` on `FilePart` | `mediaType` | AI SDK v6 renamed the field |
-| `NoObjectGeneratedError` | `NoOutputGeneratedError` | Renamed alongside the deprecated API |
-| Store `blob.url` in DB | Store `blob.pathname` | URL is not stable |
-| Sync `cookies()` call | `const store = await cookies()` | Next 16: `cookies()` is async |
-| `supabase.from()` in `page.tsx` / `layout.tsx` | `lib/dal/*.ts` functions | Hard Rule 12, enforced by lint |
-| `import { action }` in `'use client'` files | Inject action as prop from RSC parent | Hard Rule 11, enforced by lint |
-| Inline `type DocumentType = 'prescription' \| ...` | `import { DocumentType } from '@/lib/types/domain'` | Hard Rule 13, enforced by lint |
-| `params.id` in route handlers | `const { id } = await params` | Next 16: `params` is a Promise |
-| Plain `.upsert()` on `episode_summaries` | `upsertEpisodeSummary()` RPC wrapper | Resets version counter |
+| Sync `cookies()` / `params.id` | `await cookies()` / `await params` | Async in Next 16 |
+| `useActionState((formData) => …)` | `(_prev, formData) => …` | Silent arg shift, no type error |
+| `generateObject()` / `streamObject()` | `generateText + Output.object({ schema })` | Deprecated in AI SDK v6 |
+| `mimeType` on FilePart | `mediaType` | AI SDK v6 rename |
+| `NoObjectGeneratedError` | `NoOutputGeneratedError` | Renamed alongside |
+| `getSession()` | `getUser()` | Validates the JWT, not just the cookie |
+| `supabase.from()` in pages/layouts | `lib/dal/*.ts` | DAL boundary, lint-enforced |
+| `import { action }` in `'use client'` | Inject as prop from RSC parent | Lint-enforced |
+| Inline union of a DB enum | Import from the domain types module | Lint-enforced |
+| Raw `#hex`/`oklch()` in className | Token classes (`brand`/`accent`/`ai`/`success`) | Lint-enforced |
+| New package without decision record | `docs/DECISIONS.md` entry first | PRACTICES §2 |
 
-Full context and worked examples for each: `docs/ANTI_PATTERNS.md`.
+## Working Agreements
 
----
-
-## Navigation
-
-| Need | Go to |
-|------|-------|
-| All 14 hard rules (the law) | `CLAUDE.md` |
-| Architecture decisions (ADRs 001–012) | `docs/ARCHITECTURE.md` |
-| Full Postgres schema + RLS policies | `docs/DATA_MODEL.md` |
-| AI prompts + Zod schemas | `docs/AI_BEHAVIOUR.md` |
-| Component catalogue + prop types | `docs/COMPONENT_PLAN.md` |
-| Form handling contract | `docs/FORMS.md` |
-| Testing plan | `docs/TESTING.md` |
-| Daily decisions journal | `docs/CONTENT_LOG.md` |
-
----
-
-## Stop Conditions
-
-Stop and wait for sign-off before writing code if:
-- A new component is needed with no existing story pattern
-- A Shadcn primitive is missing from `components/ui/`
-- A new action or form has no schema in `lib/validation/schemas.ts`
-
----
+- **Never auto-commit.** Show the plan, ask "Ready to commit?", wait.
+- **Questions over assumptions** — an OPEN decision entry or a direct question, never a silent default.
+- **Deviation from the wedge gets flagged in the moment** (`docs/analysis/05-direction.md` is the wedge of record).
+- Subagent/model policy and skills map: `docs/AGENTIC_WORKFLOW.md`.
 
 ## Gate Before Every Commit
 
 ```bash
-pnpm lint:arch   # tsc --noEmit + eslint (8 custom carealig/ rules) + check-stories
-pnpm test        # unit + integration tests
+pnpm lint:arch   # tsc --noEmit + custom ESLint rules + check-stories
+pnpm test        # vitest
 ```
 
-The pre-commit hook runs `pnpm lint:arch` automatically — activated via `pnpm install` → `prepare` script.
+Pre-commit hook runs `lint:arch` automatically (`.githooks`, activated by `pnpm install` → `prepare`). Phase exit: `docs/PRACTICES.md` §8 checklist, literally.

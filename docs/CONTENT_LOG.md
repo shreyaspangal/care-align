@@ -14,6 +14,26 @@ At the end of every build session, answer these three:
 
 ---
 
+## Phase 0 — v2 Reset: Teardown + Foundation Docs — 2026-07-15
+
+**What did I decide?**
+
+To execute the greenfield rebuild inside the same repo, and what "the chassis" actually means when you have to draw the line file by file. Kept: `components/ui/` (14 themed primitives), the ESLint enforcement stack + `.githooks`, `lib/{logger,ratelimit,utils,supabase}`, Storybook/vitest configs. Deleted: 130+ files — all actions, all composite/feature components, `lib/{ai,auth,dal,db,types,validation}`, all migrations, all tests, `proxy.ts`, the ds-bundle. Two files moved from "keep" to "delete" during execution: `lib/storage` (imported the deleted validation schemas, and D-003 may drop Vercel Blob entirely — keeping a half-broken module would be the TESTING.md anti-pattern in miniature) and `.design-sync/` (its entry file re-exported deleted v1 components).
+
+Also decided the shape of the v2 rules layer: CLAUDE.md now leads with the five product-defining rules (explain-never-advise, verbatim-or-null, capture-is-sacred, no-roles, family_id + two-layer access) before any stack mechanics. v1's CLAUDE.md led with the stack; the rules that made the product safe were items 8–9 of 14. Order is emphasis.
+
+**What resisted me?**
+
+My own verification. After the mass delete I grepped the kept chassis for imports of deleted modules and got zero matches — but BSD grep doesn't support `\|` alternation in basic regex, so the grep was silently matching nothing. `tsc` caught what the grep missed (`lib/storage/validate.ts` → deleted schemas). The machinery beat the spot-check, again — which is the entire thesis of PRACTICES.md, demonstrated on the first day of v2 against its own author.
+
+Also: stale `.next/` type-generation kept validating deleted routes until the cache was cleared — a reminder that "the gate is green" requires knowing what the gate is actually looking at.
+
+**What did I understand?**
+
+Teardown is a design act, not janitorial work. Every file you keep is a claim ("this survives the model change") and every claim can be wrong in both directions — I nearly kept `lib/storage` because it was on the keep-list from planning, when the honest test was "does this compile and does an open decision depend on it?" Lists made during planning are hypotheses; execution is when they get falsified. The repo now builds clean at 2 routes, all gates green, with the v2 five-piece scope defined entirely in docs — code follows in Phase 1.
+
+---
+
 ## Documentation Architecture — Progressive Disclosure — 2026-07-13
 
 **What did I decide?**
