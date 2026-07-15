@@ -17,7 +17,7 @@ The one destructive phase. Everything here is a `git rm`, so it's fully reversib
 3. **Keep untouched:** `components/ui`, `lib/supabase`, `lib/logger.ts`, `lib/ratelimit.ts`, `lib/storage`, `eslint.config.mjs`, `scripts/`, `.githooks`, Storybook config, all root config.
 4. **Design tokens:** rename `brand`/`patient`/`ai` namespaces to role-free equivalents in `globals.css` + the `carealig/no-raw-color-values` rule's allowlist.
 5. **Rewrite CLAUDE.md + AGENTS.md** for v2: keep the enforcement/Supabase/Next-16/commit rules; replace product rules with v2 Hard Rules — (a) **explain-never-advise** (no AI output may interpret severity, suggest actions, or compare to norms), (b) family/profile model — the words coordinator/patient are banned in code, (c) capture is sacred (uploaded bytes always yield a visible timeline entry), (d) verbatim-or-null extraction, (e) `family_id` on every table + two-layer GRANT/RLS.
-6. **New Supabase project**, update `.env.local` / `.env.example`; minimal `app/` shell (`/` placeholder) so the repo builds.
+6. ~~New Supabase project~~ **Wipe and reuse the v1 Supabase project** (founder-decided 2026-07-15: v1 test data is disposable; same credentials, zero new setup). The wipe — drop all v1 tables/functions/policies + delete test auth users — is Phase 1 step 0, immediately before the baseline migration. Update `.env.local` / `.env.example`; minimal `app/` shell (`/` placeholder) so the repo builds.
 7. **CI before features:** GitHub Actions workflow (PRACTICES §5 chain) on `shreyaspangal/care-align` — must be green on the teardown commit itself.
 8. **Tooling:** install Impeccable (`npx impeccable install`); founder creates a **CareAlign PostHog project** (separate from work projects) and drops the key in `.env.local`.
 9. Rename `BUILD_PLAN_V2.md` → `BUILD_PLAN.md` (old one archived in step 1).
@@ -26,6 +26,7 @@ The one destructive phase. Everything here is a `git rm`, so it's fully reversib
 
 ## Phase 1 — Foundation: schema, auth, family & profiles (~1–2 days)
 
+0. **Wipe v1 remains from the reused Supabase project** — drop public-schema tables/functions/types, remove v1 storage objects if any, delete test auth users. Founder confirms before execution (destructive).
 1. **Baseline migration** (single file, the only schema source): enums; `families`, `profiles`, `documents`, `document_explanations`, `appointments`; `current_family_id()` security-definer helper; RLS (`family_id = current_family_id()` on every table) + **GRANTs in the same migration**; `search_tsv` generated column + GIN index + `pg_trgm`; unique `idempotency_key`.
 2. `lib/types/domain.ts` (v2 unions: `DocumentStatus`, `DocType`, `AppointmentStatus`) + `lib/validation/schemas.ts` (Zod, single source).
 3. **Auth:** `(auth)/register` (creates auth user + `families` row via service client), `(auth)/login`, `proxy.ts` (session refresh; `/` → `/profiles` when authed).
