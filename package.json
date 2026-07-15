@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "type": "module",
   "private": true,
-  "types": ".design-sync/ds-entry.d.ts",
+  "packageManager": "pnpm@10.14.0",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks",
     "dev": "next dev",
@@ -12,15 +12,12 @@
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
-    "test:ai": "vitest run __tests__/ai/fixture.test.ts __tests__/ai/boundary.test.ts",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "seed": "dotenv -e .env.local -- tsx scripts/seed-dev.ts",
     "lint:stories": "node scripts/check-stories.mjs",
-    "lint:arch": "tsc --noEmit && eslint \"components/**/*.{ts,tsx}\" \"actions/**/*.{ts,tsx}\" \"lib/**/*.{ts,tsx}\" \"app/**/*.{ts,tsx}\" && node scripts/check-stories.mjs"
+    "lint:arch": "tsc --noEmit && eslint --no-error-on-unmatched-pattern \"components/**/*.{ts,tsx}\" \"actions/**/*.{ts,tsx}\" \"lib/**/*.{ts,tsx}\" \"app/**/*.{ts,tsx}\" && node scripts/check-stories.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.81",

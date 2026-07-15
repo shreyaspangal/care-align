@@ -52,3 +52,6 @@ docs/AI_HACKATHON_HEALTHCARE.md
 .design-sync/node_modules
 .ds-sync/
 ds-bundle/
+
+# premium reference PDFs (purchased content — digests live in docs/, originals stay local)
+docs/research/extracts/

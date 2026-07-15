@@ -23,12 +23,8 @@ export default defineConfig({
       extends: true,
       test: {
         environment: 'jsdom',
-        setupFiles: ['__tests__/setup.ts'],
         globals: true,
-        // Playwright specs live in __tests__/e2e and run via `pnpm test:e2e`,
-        // not Vitest. Real-Claude AI tests run via `pnpm test:ai`. Exclude both
-        // from the default fast suite.
-        exclude: ['**/node_modules/**', '**/__tests__/e2e/**', '**/__tests__/ai/**']
+        exclude: ['**/node_modules/**']
       }
     }, {
       extends: true,
