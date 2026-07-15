@@ -4,7 +4,7 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 // Service role client — bypasses RLS entirely.
 // Use ONLY for operations that cannot pass RLS by design
-// (e.g. creating a patient before the access grant exists).
+// (e.g. creating the family row during signup, before membership exists).
 // Never expose this client or its key to the browser.
 export function createServiceClient() {
   return createSupabaseClient(
