@@ -16,7 +16,7 @@
          border  → borders and dividers in this context
          surface → page-level background tint (larger areas than tint)
        Adding a new theme: redefine these vars under a [data-theme="x"] selector.
-       Adding a new role (doctor, admin): follow the same suffix pattern.
+       Adding a new namespace: follow the same suffix pattern.
     ── */
     --color-brand-base:       var(--brand-base);
     --color-brand-on:         var(--brand-on);
