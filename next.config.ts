@@ -8,6 +8,17 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '10mb',
     },
   },
+  async rewrites() {
+    const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST
+    if (!posthogHost) return []
+
+    return [
+      { source: '/ingest/static/:path*', destination: `${posthogHost}/static/:path*` },
+      { source: '/ingest/array/:path*', destination: `${posthogHost}/array/:path*` },
+      { source: '/ingest/:path*', destination: `${posthogHost}/:path*` },
+    ]
+  },
+  skipTrailingSlashRedirect: true,
 }
 
 export default nextConfig
