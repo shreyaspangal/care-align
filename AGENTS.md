@@ -16,23 +16,23 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 A family's health history, organized and retrievable when the doctor asks. One account = one family (Netflix-style); family members are **profiles**, not users — no per-member logins, no roles. Capture a medical document → AI organizes and **explains** it (never advises) → it lands on that person's timeline → the family retrieves it via search or a printable **visit brief**, and manages upcoming appointments.
 
-This is a **greenfield rebuild in the same repo**. v1 (coordinator/patient episode tool) was torn down 2026-07-15; its docs live read-only in `docs/archive/carealign-v1/`. The chassis survived: `components/ui/` primitives, the ESLint enforcement stack, `lib/{logger,ratelimit,utils,storage,supabase}`, configs.
+This is a **greenfield rebuild in the same repo**. v1 (coordinator/patient episode tool) was torn down 2026-07-15; its docs live read-only in `docs/archive/carealign-v1/`. The chassis survived: `components/ui/` primitives, the ESLint enforcement stack, `lib/{logger,ratelimit,utils,supabase}`, configs.
 
-## Build Status (2026-07-15)
+## Build Status (2026-07-17)
 
-**Phase 0 (reset) in progress.** Nothing of v2 is built yet. Sequence and exit criteria: `docs/BUILD_PLAN.md`.
+**Phase 1 built — all gates green, awaiting founder-confirmed commits.** Schema + RLS live on the wiped v1 Supabase project (reused, founder-decided); D-003 resolved to Supabase Storage with spike data. PIN authority model: changing/removing an existing PIN requires the current PIN or the account password (SYSTEM_DESIGN §D). Sequence and exit criteria: `docs/BUILD_PLAN.md`.
 
 | Phase | What | Status |
 |---|---|---|
-| 0 | Teardown, docs, CI, chassis rename | ← in progress |
-| 1 | Foundation: schema, RLS, auth, profiles; resolve D-003 (file storage) | pending |
+| 0 | Teardown, docs, CI, chassis rename | done (2026-07-15, committed) |
+| 1 | Foundation: schema, RLS, auth, profiles; resolve D-003 (file storage) | ← built, uncommitted; PostHog wiring pending |
 | 2 | Capture + organize pipeline + eval set | pending |
 | 3 | Timeline + retrieval (visit brief mocked FIRST) | pending |
 | 4 | Visit brief + appointments + reminders | pending |
 | 5 | Onboarding, landing, polish | pending |
 | 6 | Dogfood with the founder's family | pending |
 
-**Blocked on founder:** PostHog project creation; new Supabase project credentials (Phase 1); D-003 spike sign-off.
+**Blocked on founder:** PostHog project creation (Phase 1 step 7 — tracking events can't fire without it); "Ready to commit?" confirmation for the Phase 1 diff.
 
 ## The Non-Negotiables (full list: CLAUDE.md)
 

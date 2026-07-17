@@ -32,7 +32,7 @@ Hospital/insurer discovery (V2), sharing outside the family account, insurance c
 
 ### Stack (carried forward)
 
-Next.js 16 App Router + React 19 + TypeScript · Supabase (Postgres/Auth/RLS) · Vercel Blob (private) · Claude via AI SDK v6 (`generateText + Output.object`) · Shadcn/Tailwind v4 · Upstash rate limiting · Vercel deploy.
+Next.js 16 App Router + React 19 + TypeScript · Supabase (Postgres/Auth/RLS + Storage private bucket, D-003) · Claude via AI SDK v6 (`generateText + Output.object`) · Shadcn/Tailwind v4 · Upstash rate limiting · Vercel deploy.
 
 ### Route tree (one tree, no role branches)
 
@@ -45,7 +45,7 @@ app/
     p/[profileId]/brief                ← visit brief (print/share-friendly screen)
     p/[profileId]/appointments
     p/[profileId]/search               ← retrieval surface (also reachable from timeline header)
-  api/documents/[documentId]/file      ← auth-checked 302 to short-lived signed Blob URL (v1 salvage)
+  api/documents/[documentId]/file      ← auth-checked 302 to short-lived Supabase Storage signed URL
 proxy.ts                               ← session refresh + auth redirects only
 ```
 
@@ -61,8 +61,9 @@ The core insight adopted: **separate media upload from record creation, and hide
                     The canvas re-encode also STRIPS EXIF (GPS coords + device IDs
                     must never reach storage — these are medical photos) and applies
                     the EXIF orientation flag so iOS portraits don't render sideways.
-2. Immediately    → client upload direct to Vercel Blob via presigned client-upload
-                    (bytes never transit our server), IN PARALLEL with…
+2. Immediately    → client upload direct to the private Supabase Storage bucket
+                    via createSignedUploadUrl token (bytes never transit our
+                    server; D-003), IN PARALLEL with…
 3. …the user picking: which profile, optional type hint, optional note
 4. Submit         → createDocument server action: small JSON call with blob key +
                     client-generated idempotency_key → row status='uploaded' →
@@ -114,16 +115,16 @@ Key decisions:
 - **Two-layer discipline (v1's hardest-won lesson):** every migration that creates a table includes both the RLS policies AND `GRANT SELECT, INSERT, UPDATE, DELETE … TO authenticated; GRANT ALL … TO service_role;`. The silent 0-row-update failure mode is documented in the migration template itself.
 - **`documents.width/height` stored at upload** (Photo Sharing extract): timeline reserves aspect-ratio boxes → no layout shift in an image-heavy list.
 - **`idempotency_key`** (News Feed extract): client-generated at submit time, unique-constrained — an upload retry can never create a duplicate timeline entry.
-- **Search:** generated `tsvector` over title/doctor/facility + explanation text, GIN-indexed, plus `pg_trgm` for fuzzy matches; always filtered by profile. pgvector/semantic is deferred.
-- **Timeline** = keyset-paginated union of documents and appointments per profile, ordered by event date (`document_date ?? captured_at`, `scheduled_at`), cursor = `(event_date, id)`.
-- **Profile PIN** = bcrypt `pin_hash`; unlock is a server action setting a short-lived signed cookie scoped to that profile. Honest threat model, documented: the PIN protects *privacy within the family*, not security against whoever holds the account password — RLS cannot distinguish family members because there is only one auth user.
+- **Search:** two generated `tsvector` columns (a GENERATED column cannot reference another table): `documents.search_tsv` over title/doctor/facility/doc_type and `document_explanations.search_tsv` over `what_it_says` — both GIN-indexed, queried together, plus `pg_trgm` on titles for fuzzy matches; always filtered by profile. pgvector/semantic is deferred.
+- **Timeline** = keyset-paginated union of documents and appointments per profile, ordered by event date (`document_date ?? captured_at`-day-in-IST — D-011, `scheduled_at`), cursor = `(event_date, id)`. Enum-like columns are text + CHECK, not Postgres enums (D-010).
+- **Profile PIN** = bcrypt `pin_hash`; unlock is a server action setting a short-lived signed cookie scoped to that profile. Honest threat model, documented: the PIN protects *privacy within the family*, not security against whoever holds the account password — RLS cannot distinguish family members because there is only one auth user. **Changing or removing an existing PIN requires proof of scope** (Netflix profile-lock model): the profile-holder proves it with the current PIN; the account-holder proves it by re-entering the account password (also the forgotten-PIN recovery path — without it a forgotten PIN would lock the family out of those records forever). First-time set is open to any session: no PIN exists to prove profile-holder-ship against, and a bad-faith set is recoverable via the password path.
 - **Visit brief** = read-time aggregation, no table: profile header + medications-as-written from recent prescriptions (each item cited to its source document) + latest document per type + recent/upcoming appointments. Factual, cited, printable.
 - **No episodes, no tasks, no access grants, no provenance, no invites.** Gone with the role model.
 
 ## I — Interface
 
 **Server actions** (injected into client components as props — v1 Hard Rule 11 carries over):
-`registerFamily`, `addProfile`, `updateProfile`, `setProfilePin`, `unlockProfile`, `requestUploadToken`, `createDocument`, `retryOrganize`, `updateDocumentDetails` (manual correction for `needs_review` and user fixes), `deleteDocument`, `createAppointment`, `updateAppointment`, `searchDocuments`.
+`registerFamily`, `addProfile`, `updateProfile`, `setProfilePin` (first set only), `changeProfilePin` / `removeProfilePin` (require current PIN or account password), `unlockProfile`, `requestUploadToken`, `createDocument`, `retryOrganize`, `updateDocumentDetails` (manual correction for `needs_review` and user fixes), `deleteDocument`, `createAppointment`, `updateAppointment`, `searchDocuments`.
 
 **DAL** (`lib/dal/` — the only place pages/layouts touch tables; v1 Hard Rule 12):
 `getFamily`, `getProfiles`, `getTimeline(profileId, cursor?)`, `getDocument`, `searchProfile(profileId, q)`, `getVisitBrief(profileId)`, `getAppointments(profileId)`, `getDueReminders` (cron).
@@ -205,6 +206,7 @@ erDiagram
         jsonb medications_as_written
         jsonb tests_as_written
         int latency_ms "AI telemetry"
+        tsvector search_tsv "generated over what_it_says"
     }
     APPOINTMENT {
         uuid id PK

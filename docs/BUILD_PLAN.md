@@ -32,18 +32,18 @@ The one destructive phase. Everything here is a `git rm`, so it's fully reversib
 3. **Auth:** `(auth)/register` (creates auth user + `families` row via service client), `(auth)/login`, `proxy.ts` (session refresh; `/` → `/profiles` when authed).
 4. **Profiles:** picker screen (Netflix-style grid), add/edit profile, PIN set + unlock action (bcrypt, short-lived signed cookie), lock badge.
 5. **DAL:** `getFamily`, `getProfiles`, profile helpers — `cache()`-wrapped.
-6. **Resolve D-003** (file storage: Supabase Storage vs Vercel Blob) — the ≤2h spike per DECISIONS.md; capture build is blocked until this closes.
+6. ~~Resolve D-003~~ **D-003 RESOLVED (2026-07-16): Supabase Storage** — spike measured 8x faster uploads from India + working transforms; see DECISIONS.md.
 7. **PostHog wiring:** client + server SDK, first tracking-plan events (`profile_created`), error capture, web vitals.
 
 **Test focus:** RLS proof-test (second Supabase user cannot read family A's rows — the v1 silent-failure lesson, now automated); Zod schema units.
 
 ## Phase 2 — Capture pipeline (~2–3 days) — the heart
 
-1. **Upload client:** camera/file input → canvas re-encode (compress, longest-edge 2000px, **EXIF stripped, orientation applied**) → Vercel Blob client upload via token route → store `width/height`.
+1. **Upload client:** camera/file input → canvas re-encode (compress, longest-edge 2000px, **EXIF stripped, orientation applied**) → direct PUT to the private Supabase Storage `documents` bucket via `createSignedUploadUrl` token (D-003) → store `width/height`.
 2. **`createDocument` action:** blob key + client idempotency key → `documents` row (`status='uploaded'`) → instant response; rate limit (Upstash) on the token route.
 3. **AI organize in `after()`:** one `generateText + Output.object(OrganizeSchema)` call (classify + extract + explain + `patient_name_as_written`); write `document_explanations`; `status='organized'`. Any failure → `status='needs_review'` (document stays visible).
 4. **Timeline card states:** Organizing… → organized (filled) → needs-review (manual-details form + `retryOrganize`). Upload failure keeps the local file with a backoff-capped retry button.
-5. **File serving route:** auth check → 302 signed Blob URL (v1 pattern).
+5. **File serving route:** auth check → 302 to short-lived Supabase Storage signed URL (v1 pattern, new backend).
 6. **Prompt:** explain-never-advise hard-constrained; verbatim-or-null; store `prompt_version`.
 
 **Test focus:** an **eval set** — 10–15 real family documents (founder-supplied, anonymized) with expected extractions; run against the organize step and score field accuracy + boundary violations (any advisory language = hard fail). This eval is the regression suite for every future prompt change (applied-llms practice).

@@ -28,15 +28,17 @@
 
 **Choice:** Supabase. **Why:** the product is a relational timeline with one clean tenancy rule — exactly what Postgres+RLS is for, and we carry scar tissue (GRANT+RLS, silent-0-row) that de-risks it. **Revisit:** sustained RLS performance issues at real scale.
 
-## D-003 — File storage: **OPEN — resolve in Phase 1, before capture build**
+## D-003 — File storage: **Supabase Storage — RESOLVED 2026-07-16 by spike**
 
 | Option | For | Against |
 |---|---|---|
-| Vercel Blob (v1 inheritance) | Client-upload tokens work well; presigned pattern proven in v1 | **A second vendor** for something Supabase already includes; per-GB pricing separate; v1 chose it without comparison |
-| **Supabase Storage (leaning)** | Same vendor/billing/auth context; bucket policies align with RLS mental model; signed + resumable (TUS) uploads; built-in image transformations (could serve thumbnails) | Slightly less turnkey client-upload DX than Blob; egress pricing to verify |
+| **Supabase Storage (chosen)** | Same vendor/billing/auth context; bucket colocated with the DB (Singapore); signed upload + signed read both proven; image transformations work on our plan | Slightly less turnkey client-upload DX than Blob |
+| Vercel Blob (v1 inheritance) | Presigned pattern proven in v1 | A second vendor; measured 8x slower from India; private-blob reads need extra auth plumbing |
 | Cloudflare R2 | Cheapest at scale, zero egress | Third vendor + manual presign plumbing; scale doesn't warrant it |
 
-**Leaning:** Supabase Storage — one vendor, one auth context, and image transformations replace a thumbnail step we'd otherwise build. **Resolution criteria (Phase 1 spike, ≤2h):** confirm client-upload token flow + signed-URL serving + transformation latency from India. This entry exists precisely because v1 never compared — decide with evidence, then close.
+**Spike results (2026-07-16, founder's machine in India, 300KB payload, private `documents` bucket):** Supabase — signed-upload token 125ms, direct PUT 404ms (status 200), signed-read URL 79ms, read 384ms, **transform signed URL worked (200)**. Vercel Blob — upload 3,195ms, raw private URL read 403. Client-upload token flow = `createSignedUploadUrl` (server) + direct `PUT` (client) — bytes never transit our server.
+
+**Consequences:** `@vercel/blob` and `BLOB_READ_WRITE_TOKEN` removed; capture pipeline uploads to the private `documents` bucket; the document-file route serves auth-checked signed URLs; thumbnails can use built-in transforms. **Revisit trigger:** egress costs at real scale.
 
 ## D-004 — Document-understanding model: Claude via AI SDK v6 — **eval-decided, provisional**
 
@@ -73,6 +75,19 @@ Beat argon2 (stronger KDF but native-binding friction in serverless). Threat mod
 ## D-009 — Styling/components: Tailwind v4 + Shadcn (kept from chassis)
 
 Re-justified rather than inherited blindly: 14 primitives already themed with our tokens; the alternative (Chakra/Mantine/vanilla) means re-theming for zero user-visible gain. Token namespaces renamed role-free in Phase 0. **Revisit:** not before V2.
+
+## D-010 — Enum-like columns: text + CHECK constraints, not CREATE TYPE
+
+| Option | For | Against |
+|---|---|---|
+| **text + CHECK** | Evolvable in one `ALTER TABLE ... DROP/ADD CONSTRAINT`; doc_type list WILL change as the eval set teaches us real Indian document categories; TS unions in `lib/types/domain.ts` are the type-safety layer anyway | Slightly weaker DB-side introspection |
+| Postgres enums (v1 approach) | Self-documenting in `\dT` | Values can never be dropped; renames/removals need a full type swap with table rewrites |
+
+**Choice:** text + CHECK everywhere (`documents.status/doc_type`, `appointments.status`, `profiles.sex`). **Why:** the churn risk is real and one-directional — v1 never removed an enum value only because v1 never learned from real documents. **Revisit:** never likely.
+
+## D-011 — Timeline event-date fallback timezone: Asia/Kolkata
+
+`documents_timeline_idx` orders by `coalesce(document_date, (captured_at at time zone 'Asia/Kolkata')::date)`. A bare `::date` cast is not IMMUTABLE (rejected in index expressions), so a timezone must be baked in. UTC would date evening captures (18:30–24:00 IST — prime after-clinic hours) as the previous day. V1 is India-first; the index expression and every query computing event date must match exactly. **Revisit trigger:** internationalization (requires index rebuild).
 
 ---
 

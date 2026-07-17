@@ -55,6 +55,18 @@ Redefining a DB enum's union type inline in a component works until the DB enum 
 
 v1 named components, routes, and design tokens after roles (`coordinator`, `patient`) — when the model changed, the vocabulary was wrong everywhere at once. v2 has **no roles**: one family account, profiles within it. The words "coordinator" and "patient" (as a role) are banned from identifiers; design tokens are role-free (`accent`, `ai`, `success`).
 
+## 9. Parameterized server actions — `.bind(null, id)` looks wrong but is the pattern
+
+**Failure mode:** an action like `changeProfilePin(profileId, _prev, formData)` needs a route-level ID, but `useActionState` always calls actions as `(prev, formData)`. The call site `action={changeProfilePin.bind(null, profile.id)}` reads as obscure JS trickery, so readers reach for "cleaner" alternatives that are actually downgrades (this confused a real review in Phase 1):
+
+- **Hidden `<input name="profileId">`** — moves the ID from render-time plumbing into user-editable form data: plaintext in the HTML, must be added to every Zod schema, and the action's contract becomes "whatever the client sent". Safe only because RLS rescues it; still a downgrade.
+- **Inline `'use server'` closure per page** — scatters action-invocation logic across page files and swaps a documented idiom for a homegrown one.
+- **Action factory in `actions/`** — impossible: `'use server'` modules may only export async server functions, not sync factories.
+
+**Correct pattern:** extra args go first in the action signature; the RSC page binds them: `updateProfile.bind(null, profile.id)`. This is the official Next.js/React idiom: fully type-checked (`strictBindCallApply` via `strict: true`), the bound value is serialized *encoded* into the action payload (not rendered in HTML), and it survives progressive enhancement. The `null` is just the unused `this` argument.
+
+**Not a security boundary:** the server never trusts a bound ID — anyone can invoke an action with arbitrary args. RLS + explicit checks (e.g. `verifyPinAuthority`) authorize every write regardless of what was bound.
+
 ---
 
 *Add entries only after a real incident. Each entry: failure mode → correct pattern → enforcement (if any).*
