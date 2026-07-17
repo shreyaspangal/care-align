@@ -12,7 +12,7 @@ concurrency:
 jobs:
   checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -29,9 +29,25 @@ jobs:
       - name: Typecheck + architecture lint + stories
         run: pnpm lint:arch
 
-      - name: Unit tests
+      - name: Install Playwright browsers (story tests)
+        run: pnpm exec playwright install chromium --with-deps
+
+      - name: Start local Supabase (applies migrations)
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - run: supabase start
+
+      - name: Export local Supabase env
+        run: |
+          eval "$(supabase status -o env)"
+          echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
+
+      - name: Unit + RLS proof + story tests
         run: pnpm test
 
-      # Phase 1+: RLS proof tests against local Supabase (PRACTICES §4).
-      # Phase 2+: eval smoke with cached responses (PRACTICES §6).
-      # Rule: a job is added here in the SAME commit that adds the practice row.
+      # Phase 2+: eval smoke with cached responses (PRACTICES §6) — added in the
+      # same commit as its practice row.
