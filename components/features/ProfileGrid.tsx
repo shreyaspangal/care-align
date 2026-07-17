@@ -1,4 +1,7 @@
+'use client'
+
 import Link from 'next/link'
+import posthog from 'posthog-js'
 import { LockKeyhole, Pencil, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ProfileSummary } from '@/lib/dal/profiles'
@@ -34,6 +37,9 @@ export function ProfileGrid({ profiles }: ProfileGridProps) {
         <li key={profile.id} className="relative">
           <Link
             href={`/p/${profile.id}`}
+            onClick={() =>
+              posthog.capture('profile_selected', { is_pin_protected: profile.hasPin })
+            }
             className="group flex flex-col items-center gap-2 rounded-xl border bg-card p-4 transition-colors hover:border-brand-border"
           >
             <span
