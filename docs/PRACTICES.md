@@ -55,13 +55,19 @@ GitHub Actions on every push/PR, set up in Phase 0 (before any feature code): `t
 
 | Event | Fired when | Key props |
 |---|---|---|
+| `account_registered` | family account created (server action) | email_confirmation_required |
+| `user_logged_in` | successful login (server action) | — |
+| `profile_created` / `profile_updated` | profile CRUD (server actions) | has_date_of_birth, has_sex (Phase 5 adds `via: onboarding_proposal \| manual`) |
+| `profile_selected` | picker tile tapped (client) | is_pin_protected |
+| `profile_unlocked` | PIN unlock success (server action) | authentication_method |
 | `capture_started` / `capture_completed` / `capture_failed` | upload lifecycle | mime, bytes, retry_count |
 | `organize_completed` / `organize_needs_review` | AI pipeline | doc_type, latency_ms, prompt_version |
 | `document_corrected` | manual fix after needs_review | field(s) corrected |
 | `search_performed` / `search_result_opened` | retrieval | query_len, results_count |
 | `visit_brief_opened` / `visit_brief_printed` | the hero moment | profile_age_bucket |
 | `appointment_created` / `reminder_sent` | loop | days_ahead |
-| `profile_created` (`via: onboarding_proposal \| manual`) | onboarding | — |
+
+Identity: `identify(supabase user id)` on register/login and on authenticated page load (`PostHogIdentify`); email stored as a person property only; `posthog.reset()` on logout. No profile names, PINs, or health data in any event property.
 
 North-star check (monthly, PostHog): **retrieval moments per family per month** (search + brief opens). If it trends to zero, the wedge thesis is wrong — that's the number that decides V1.5, per the product-engineer principle of measuring impact, not output.
 
