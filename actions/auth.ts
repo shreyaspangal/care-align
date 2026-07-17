@@ -1,10 +1,12 @@
 'use server'
 
 import { redirect } from 'next/navigation'
+import { after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { LoginSchema, RegisterSchema } from '@/lib/validation/schemas'
 import { createLogger } from '@/lib/logger'
+import { createPostHogClient } from '@/lib/posthog-server'
 
 const log = createLogger('actions:auth')
 
@@ -48,6 +50,23 @@ export async function register(
     return { error: 'Account created but family setup failed — try logging in' }
   }
 
+  // after(): analytics delivery must not delay the redirect (EU round-trip).
+  const userId = data.user.id
+  const emailConfirmationRequired = !data.session
+  after(async () => {
+    const posthog = createPostHogClient()
+    posthog.identify({
+      distinctId: userId,
+      properties: { email: parsed.data.email },
+    })
+    posthog.capture({
+      distinctId: userId,
+      event: 'account_registered',
+      properties: { email_confirmation_required: emailConfirmationRequired },
+    })
+    await posthog.shutdown()
+  })
+
   if (!data.session) {
     // Email confirmation is enabled on the project — no session until confirmed.
     return { message: 'Check your email to confirm your account, then log in.' }
@@ -69,10 +88,21 @@ export async function login(
   }
 
   const supabase = await createClient()
-  const { error } = await supabase.auth.signInWithPassword(parsed.data)
-  if (error) {
+  const { data, error } = await supabase.auth.signInWithPassword(parsed.data)
+  if (error || !data.user) {
     return { error: 'Wrong email or password' }
   }
+
+  const userId = data.user.id
+  after(async () => {
+    const posthog = createPostHogClient()
+    posthog.identify({
+      distinctId: userId,
+      properties: { email: parsed.data.email },
+    })
+    posthog.capture({ distinctId: userId, event: 'user_logged_in' })
+    await posthog.shutdown()
+  })
 
   redirect('/profiles')
 }

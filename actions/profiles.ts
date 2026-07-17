@@ -13,7 +13,9 @@ import {
   RemovePinSchema,
   type RemovePinInput,
 } from '@/lib/validation/schemas'
+import { after } from 'next/server'
 import { createLogger } from '@/lib/logger'
+import { createPostHogClient } from '@/lib/posthog-server'
 
 const log = createLogger('actions:profiles')
 
@@ -57,6 +59,21 @@ export async function addProfile(
     return { error: 'Could not create the profile' }
   }
 
+  // after(): analytics delivery must not delay the redirect (EU round-trip).
+  after(async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return
+    const posthog = createPostHogClient()
+    posthog.capture({
+      distinctId: user.id,
+      event: 'profile_created',
+      properties: { has_date_of_birth: Boolean(parsed.data.dob), has_sex: Boolean(parsed.data.sex) },
+    })
+    await posthog.shutdown()
+  })
+
   revalidatePath('/profiles')
   redirect('/profiles')
 }
@@ -89,6 +106,20 @@ export async function updateProfile(
     })
     return { error: 'Could not save the profile' }
   }
+
+  after(async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return
+    const posthog = createPostHogClient()
+    posthog.capture({
+      distinctId: user.id,
+      event: 'profile_updated',
+      properties: { has_date_of_birth: Boolean(parsed.data.dob), has_sex: Boolean(parsed.data.sex) },
+    })
+    await posthog.shutdown()
+  })
 
   revalidatePath('/profiles')
   redirect('/profiles')
@@ -282,5 +313,20 @@ export async function unlockProfile(
   }
 
   await grantProfileUnlock(profileId)
+
+  after(async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return
+    const posthog = createPostHogClient()
+    posthog.capture({
+      distinctId: user.id,
+      event: 'profile_unlocked',
+      properties: { authentication_method: 'pin' },
+    })
+    await posthog.shutdown()
+  })
+
   redirect(`/p/${profileId}`)
 }
