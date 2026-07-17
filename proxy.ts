@@ -53,6 +53,11 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Everything except static assets and the favicon.
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  // Everything except static assets, the favicon, and the PostHog ingestion
+  // proxy — /ingest must reach the next.config rewrite unauthenticated, or
+  // every logged-out event (register/login pageviews) 307s into /login and
+  // is silently dropped. Also spares a getUser() round-trip per event batch.
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|ingest|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
 }
