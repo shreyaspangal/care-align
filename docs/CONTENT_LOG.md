@@ -14,6 +14,24 @@ At the end of every build session, answer these three:
 
 ---
 
+## Phase 1 close — PostHog wiring, a proxy bug, and live-data verification — 2026-07-17
+
+**What did I decide?**
+
+The PostHog wizard's output was treated like any other contributor's PR: audited against our rules, gated, and improved — not rubber-stamped. Three decisions on top of it. **Server-side captures moved into `after()`** — the wizard's flush-before-redirect pattern made every instrumented action pay an EU round-trip before the user saw anything; Next 16's `after()` delivers the same guarantee post-response. **`PostHogIdentify` relocated to `components/analytics/`** rather than given a fake story — it renders null; a story would have been gate-appeasement, and the honest fix was recognising it isn't UI. **Wizard reports filed under `docs/research/`** with an explicit staged-files check proving `extracts/` (premium content) stayed out of the commit.
+
+**What resisted me?**
+
+The verification pass found a bug the wizard could not have known about: `proxy.ts` runs before `next.config` rewrites, so every logged-out `/ingest` POST was 307'd to `/login` and silently dropped — register and login pageviews, the top of the funnel, gone. Nothing errored; the browser network log was the only witness. One matcher exclusion fixed it, and the fix also spares a Supabase `getUser()` round-trip per event batch.
+
+Verifying server-side events took three failed routes (PostHog EU login wall in the test browser, the MCP connector bound to a US account that 403'd, an interactive wizard TUI that can't run without a raw-mode stdin) before the boring one worked: a personal API key and a direct HogQL query.
+
+**What did I understand?**
+
+"The integration works" and "the events arrive" are different claims, and only the second one counts. The live query returned the test session event-by-event — `user_logged_in` at 12:59:48, `profile_selected` at 13:00:45, `profile_unlocked` at 13:02:15 — each landing milliseconds before its matching pageview, proving both delivery and that `after()` kept capture off the critical path. Checklist item 3 ("events verified in live view") exists precisely because an instrumented event that silently 307s into an auth redirect looks identical to a working one from inside the code.
+
+---
+
 ## Phase 1 review — PIN authority model + segments defend themselves — 2026-07-16
 
 **What did I decide?**

@@ -1,49 +1,57 @@
-# Patient Coordinator
+# CareAlign
 
-> A product built from personal experience. Not a records app — a comprehension layer for the two people who need it most during a hospitalisation.
+> A family's health history, organized and retrievable when the doctor asks.
 
 ## What this is
 
-A web application for the **coordinator-patient pair** during an active hospitalisation episode.
+One family account (Netflix-style) holds profiles for each family member — no per-member logins, no roles. Members capture medical documents (photos/PDFs); AI **organizes and explains** them into a per-person timeline; the family retrieves the right record when a doctor asks (search + visit brief) and manages upcoming appointments.
 
-- **For the coordinator:** A single place that tracks all documents, proceedings, and pending tasks — so nothing crucial is missed while managing work and hospital simultaneously.
-- **For the patient:** Plain language answers to their questions about what is happening to them — without waiting for a doctor to appear.
+The wedge is **retrieval at the doctor-visit moment**, not storage.
 
 ## What this is not
 
+- Not medical advice — AI explains what a document says, never assesses severity or recommends action
 - Not a hospital system integration
 - Not a doctor finder
 - Not a medication reminder app
-- Not a full EHR replacement
-- Not a general health records storage app
+- Not a coordinator/patient role split — a profile is a person, not a permission tier
 
-## The core job
+## History
 
-> Take medical jargon from fragmented documents across departments and hospitals, and turn it into a coherent, plain-language health story that the patient and coordinator actually own and understand.
+This is a greenfield rebuild in the same repo. The original "Patient Coordinator" concept (coordinator/patient role pair, single active hospitalisation episode) was torn down 2026-07-15 in favor of the family-vault model above. Its docs live read-only in `docs/archive/carealign-v1/`.
 
-## Roadmap summary
+## Roadmap
 
-| Version | Focus | Status |
-|---------|-------|--------|
-| V1 | Translation — documents become plain language | 🔨 Building |
-| V2 | Extraction — medications, care tasks pulled automatically | 📋 Planned |
-| V3 | Voice + Language — Sarvam AI integration for regional languages and voice-first interaction | 📋 Planned |
+| Phase | What | Status |
+|---|---|---|
+| 0 | Teardown, docs, CI, chassis rename | done (2026-07-15) |
+| 1 | Foundation: schema, RLS, auth, profiles, PostHog | done (2026-07-17) |
+| 2 | Capture + organize pipeline + eval set | ← next |
+| 3 | Timeline + retrieval (visit brief mocked first) | pending |
+| 4 | Visit brief + appointments + reminders | pending |
+| 5 | Onboarding, landing, polish | pending |
+| 6 | Dogfood with the founder's family | pending |
+
+Full sequence and exit criteria: `docs/BUILD_PLAN.md`.
 
 ## Docs structure
 
 ```
 /docs
-  ROADMAP.md          Version-wise feature scope
-  ARCHITECTURE.md     Technical decisions and stack rationale
-  DATA_MODEL.md       Full schema with reasoning
-  SPEC.md             Product spec — the why behind every decision
-  BUILD_PLAN.md       5-day V1 execution plan
-  AI_BEHAVIOUR.md     AI pipeline spec — prompts, schemas, failure handling
-  COMPONENT_PLAN.md   Primitive component architecture
-  CONTENT_LOG.md      Build journey capture — daily decisions and insights
+  SYSTEM_DESIGN.md     Routes, schema, pipeline, diagrams
+  PRACTICES.md         Engineering process + phase-gate checklist + tracking plan
+  DECISIONS.md         Decision records (stack choices + rationale)
+  BUILD_PLAN.md        Build sequence + exit criteria
+  ANTI_PATTERNS.md     Scar tissue — what AI instinctively gets wrong in this stack
+  AGENTIC_WORKFLOW.md  Claude Code workflow (subagents, models, skills)
+  DESIGN_REVIEW_LENS.md Design review lens (Impeccable + PDP checklists)
+  CONTENT_LOG.md       Session retro journal
+  archive/carealign-v1/ v1 documentation (read-only history)
 ```
 
-## Quick start (after Day 1 setup)
+Rules layer (hard rules that govern every change): `CLAUDE.md`. Agent orientation: `AGENTS.md`.
+
+## Quick start
 
 ```bash
 # Install dependencies

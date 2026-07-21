@@ -20,19 +20,19 @@ This is a **greenfield rebuild in the same repo**. v1 (coordinator/patient episo
 
 ## Build Status (2026-07-17)
 
-**Phase 1 built — all gates green, awaiting founder-confirmed commits.** Schema + RLS live on the wiped v1 Supabase project (reused, founder-decided); D-003 resolved to Supabase Storage with spike data. PIN authority model: changing/removing an existing PIN requires the current PIN or the account password (SYSTEM_DESIGN §D). Sequence and exit criteria: `docs/BUILD_PLAN.md`.
+**Phase 1 CLOSED (PRACTICES §8 checklist run 2026-07-17).** Schema + RLS live on the wiped v1 Supabase project; D-003 resolved to Supabase Storage with spike data; PIN authority model in SYSTEM_DESIGN §D; PostHog wired (EU project 215321), all six events verified in live data; CI green including local-Supabase RLS proofs. Sequence and exit criteria: `docs/BUILD_PLAN.md`.
 
 | Phase | What | Status |
 |---|---|---|
-| 0 | Teardown, docs, CI, chassis rename | done (2026-07-15, committed) |
-| 1 | Foundation: schema, RLS, auth, profiles; resolve D-003 (file storage) | ← built, uncommitted; PostHog wiring pending |
-| 2 | Capture + organize pipeline + eval set | pending |
+| 0 | Teardown, docs, CI, chassis rename | done (2026-07-15) |
+| 1 | Foundation: schema, RLS, auth, profiles, PostHog; D-003 resolved | done (2026-07-17) |
+| 2 | Capture + organize pipeline + eval set | ← next |
 | 3 | Timeline + retrieval (visit brief mocked FIRST) | pending |
 | 4 | Visit brief + appointments + reminders | pending |
 | 5 | Onboarding, landing, polish | pending |
 | 6 | Dogfood with the founder's family | pending |
 
-**Blocked on founder:** PostHog project creation (Phase 1 step 7 — tracking events can't fire without it); "Ready to commit?" confirmation for the Phase 1 diff.
+**Blocked on founder:** nothing currently.
 
 ## The Non-Negotiables (full list: CLAUDE.md)
 
