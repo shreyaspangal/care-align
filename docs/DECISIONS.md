@@ -89,6 +89,24 @@ Re-justified rather than inherited blindly: 14 primitives already themed with ou
 
 `documents_timeline_idx` orders by `coalesce(document_date, (captured_at at time zone 'Asia/Kolkata')::date)`. A bare `::date` cast is not IMMUTABLE (rejected in index expressions), so a timezone must be baked in. UTC would date evening captures (18:30–24:00 IST — prime after-clinic hours) as the previous day. V1 is India-first; the index expression and every query computing event date must match exactly. **Revisit trigger:** internationalization (requires index rebuild).
 
+## D-012 — Explanation output shape: atomic, agent-consumable cited facts (not prose)
+
+**Context:** the organize step produces the explain-never-advise output stored in `document_explanations`. The design question is *where the facts live* — inside the human-readable `what_it_says` prose, or in structured per-item fields. Prompted by "The Future of SaaS is Agentic" (akashyap.ai): the piece's one genuinely applicable idea for a consumer health vault is that the retrieval hero-moment should feel like the software assembling the answer, not a user operating a search box while a doctor waits — a bounded retrieval agent, already parked in V1.5 behind the north-star trigger. Its V1 footprint is a schema-shape decision made now, cheap now and expensive to retrofit.
+
+| Option | For | Against |
+|---|---|---|
+| **Atomic cited facts (chosen)** | A V1.5 retrieval agent assembles "what meds is X on?" by pulling `medications_as_written` items across documents + joining `documents.document_date` — no re-parse, no re-inference, no fresh model call re-opening the fabrication risk closed at capture; `what_it_says` becomes a pure human summary that adds no fact absent from the structured fields | Slightly stricter prompt (every fact must land in a typed field, not just the prose) |
+| Prose blob (`what_it_says` holds the facts) | One free-text field, simplest prompt | Facts trapped in a sentence; later extraction means fragile string-parsing or a fresh AI call — the exact re-inference the pipeline exists to avoid |
+
+**Choice:** the structured arrays are the machine truth; `what_it_says` is a human summary only. **Footprint:** shape discipline within existing columns — **no new tables/columns.** `terms`/`medications_as_written`/`tests_as_written` stay jsonb; their item shapes are enforced in `OrganizeSchema` (Zod) + typed in `lib/types/domain.ts` (Rule 10). No agent is built in V1; this only keeps the V1.5 option open for free without widening V1 scope (Rule 15).
+
+Item shapes (verbatim-or-null on every sub-field — absent on the document = `null`, never inferred):
+- `Term { term, plain_explanation }` — defines the term generically; never interprets the patient's specific value.
+- `Medication { name, strength|null, frequency|null, form|null }`.
+- `LabTest { name, value|null, unit|null, reference_range|null, flag_as_written|null }`.
+
+**`flag_as_written` (the explain-never-advise boundary call, founder-decided):** a printed abnormality marker ("HIGH" / "H" / "↑") *is captured verbatim* — verbatim-or-null permits copying what the document says, and refusing to show what the document itself prints is dishonest to the source. The advisory line is the system *generating* a severity judgment or computing in/out-of-range — which it never does. The UI renders `flag_as_written` visually neutral, labeled "as printed on the document." `reference_range` follows the same rule: copied as printed, never compared against the value. **Revisit trigger:** an eval case where a captured printed flag reads as the app's own assessment despite neutral rendering → reconsider dropping flags entirely.
+
 ---
 
 *Add new entries above this line. An entry marked OPEN blocks the phase that depends on it.*
