@@ -27,3 +27,9 @@ export type Sex = (typeof SEXES)[number]
 // (CLAUDE.md Hard Rule 13). DB default is 'accent'.
 export const PROFILE_COLORS = ['accent', 'brand', 'ai', 'success'] as const
 export type ProfileColor = (typeof PROFILE_COLORS)[number]
+
+// Atomic, verbatim-or-null clinical facts stored in the document_explanations
+// jsonb arrays (D-012). Defined once with their Zod validators and re-exported
+// here so this stays the single import site for domain types (Rule 10). The
+// Zod schema is the source; these types are its inference — they cannot drift.
+export type { Term, Medication, LabTest } from '@/lib/validation/schemas'
