@@ -26,7 +26,7 @@ This is a greenfield rebuild in the same repo. The original "Patient Coordinator
 |---|---|---|
 | 0 | Teardown, docs, CI, chassis rename | done (2026-07-15) |
 | 1 | Foundation: schema, RLS, auth, profiles, PostHog | done (2026-07-17) |
-| 2 | Capture + organize pipeline + eval set | ← next |
+| 2 | Capture + organize pipeline + eval set | in progress |
 | 3 | Timeline + retrieval (visit brief mocked first) | pending |
 | 4 | Visit brief + appointments + reminders | pending |
 | 5 | Onboarding, landing, polish | pending |
