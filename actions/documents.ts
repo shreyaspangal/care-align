@@ -2,8 +2,14 @@
 
 import { revalidatePath } from 'next/cache'
 import { after } from 'next/server'
+import * as z from 'zod'
 import { createClient } from '@/lib/supabase/server'
-import { CreateDocumentSchema, type CreateDocumentInput } from '@/lib/validation/schemas'
+import {
+  CreateDocumentSchema,
+  type CreateDocumentInput,
+  UpdateDocumentDetailsSchema,
+  type UpdateDocumentDetailsInput,
+} from '@/lib/validation/schemas'
 import { organizeDocument } from '@/lib/ai/organize'
 import { createLogger } from '@/lib/logger'
 
@@ -89,4 +95,85 @@ export async function createDocument(input: CreateDocumentInput): Promise<Create
   // already returned early, so this never double-runs it for one document.
   after(() => organizeDocument(data.id))
   return { success: true, documentId: data.id }
+}
+
+export type DocumentActionResult = { success: true } | { success: false; error: string }
+
+// Both actions below run with the caller's own (cookie-scoped) client, not
+// the service client — the documents_family RLS policy already restricts
+// .update() to rows in the caller's own family, so a cross-family documentId
+// simply matches 0 rows. The .select().maybeSingle() after every update is
+// what makes that visible: without it, a 0-row match and a real success look
+// identical (ANTI_PATTERNS #1 — the exact v1 silent-failure shape).
+
+export async function retryOrganize(documentId: string): Promise<DocumentActionResult> {
+  const parsed = z.uuid().safeParse(documentId)
+  if (!parsed.success) {
+    return { success: false, error: 'Invalid document' }
+  }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
+    return { success: false, error: 'Not signed in' }
+  }
+
+  const { data, error } = await supabase
+    .from('documents')
+    .update({ status: 'uploaded' })
+    .eq('id', documentId)
+    .select('id, profile_id')
+    .maybeSingle()
+  if (error || !data) {
+    log.error('retryOrganize', 'update failed', { documentId, error: error?.message })
+    return { success: false, error: 'Could not retry — document not found' }
+  }
+
+  revalidatePath(`/p/${data.profile_id}`)
+  after(() => organizeDocument(documentId))
+  return { success: true }
+}
+
+export async function updateDocumentDetails(
+  input: UpdateDocumentDetailsInput
+): Promise<DocumentActionResult> {
+  const parsed = UpdateDocumentDetailsSchema.safeParse(input)
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0].message }
+  }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
+    return { success: false, error: 'Not signed in' }
+  }
+
+  const { data, error } = await supabase
+    .from('documents')
+    .update({
+      doc_type: parsed.data.docType,
+      title: parsed.data.title,
+      title_is_guessed: false,
+      document_date: parsed.data.documentDate,
+      doctor_name: parsed.data.doctorName,
+      facility_name: parsed.data.facilityName,
+      status: 'organized',
+    })
+    .eq('id', parsed.data.documentId)
+    .select('id, profile_id')
+    .maybeSingle()
+  if (error || !data) {
+    log.error('updateDocumentDetails', 'update failed', {
+      documentId: parsed.data.documentId,
+      error: error?.message,
+    })
+    return { success: false, error: 'Could not save — document not found' }
+  }
+
+  revalidatePath(`/p/${data.profile_id}`)
+  return { success: true }
 }

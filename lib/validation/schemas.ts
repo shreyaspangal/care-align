@@ -33,6 +33,20 @@ export const CreateDocumentSchema = z.object({
 })
 export type CreateDocumentInput = z.infer<typeof CreateDocumentSchema>
 
+// Manual correction for a needs_review document (timeline card states,
+// BUILD_PLAN Phase 2 item 4). Unlike organize's own verbatim-or-null fields,
+// these ARE user-entered — trimmed and length-capped like any other form
+// input, not held to the AI extraction's character-for-character rule.
+export const UpdateDocumentDetailsSchema = z.object({
+  documentId: z.uuid(),
+  docType: z.enum(DOC_TYPES),
+  title: z.string().trim().min(1, 'Give this document a title').max(200),
+  documentDate: z.iso.date('Enter a valid date').nullable(),
+  doctorName: z.string().trim().max(200).nullable(),
+  facilityName: z.string().trim().max(200).nullable(),
+})
+export type UpdateDocumentDetailsInput = z.infer<typeof UpdateDocumentDetailsSchema>
+
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
 export const RegisterSchema = z.object({
