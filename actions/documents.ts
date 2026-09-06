@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { after } from 'next/server'
 import * as z from 'zod'
 import { createClient } from '@/lib/supabase/server'
+import { getFamily } from '@/lib/dal/families'
+import { getProfile } from '@/lib/dal/profiles'
 import {
   CreateDocumentSchema,
   type CreateDocumentInput,
@@ -33,7 +35,7 @@ export async function createDocument(input: CreateDocumentInput): Promise<Create
     return { success: false, error: 'Not signed in' }
   }
 
-  const { data: family } = await supabase.from('families').select('id').maybeSingle()
+  const family = await getFamily()
   if (!family) {
     return { success: false, error: 'No family found for this account' }
   }
@@ -43,12 +45,11 @@ export async function createDocument(input: CreateDocumentInput): Promise<Create
   // the caller's own) and profile_id (from client input) could disagree,
   // producing a document that's visible to this family but attached to
   // another family's profile — there is no DB-level constraint tying
-  // documents.profile_id to documents.family_id, only the app layer.
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('id', parsed.data.profileId)
-    .maybeSingle()
+  // documents.profile_id to documents.family_id, only the app layer. Shared
+  // with the sign route's identical check via the DAL rather than each write
+  // path hand-rolling its own query (ANTI_PATTERNS #10 is exactly this class
+  // of duplicated-then-diverged check).
+  const profile = await getProfile(parsed.data.profileId)
   if (!profile) {
     return { success: false, error: 'Profile not found' }
   }

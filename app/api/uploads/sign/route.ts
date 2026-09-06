@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getProfile } from '@/lib/dal/profiles'
 import { uploadRatelimit } from '@/lib/ratelimit'
 import { RequestUploadSchema } from '@/lib/validation/schemas'
 import { createLogger } from '@/lib/logger'
@@ -42,12 +43,11 @@ export async function POST(request: Request) {
 
     // RLS scopes this to the caller's family — a null row means either the
     // profile doesn't exist or belongs to another family, and we don't
-    // distinguish the two to the client (ANTI_PATTERNS: don't leak cross-family existence).
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('id, family_id')
-      .eq('id', profileId)
-      .maybeSingle()
+    // distinguish the two to the client (ANTI_PATTERNS: don't leak cross-family
+    // existence). Shared with createDocument's identical check via the DAL
+    // rather than each write path hand-rolling its own query (ANTI_PATTERNS #10
+    // is exactly this class of duplicated-then-diverged check).
+    const profile = await getProfile(profileId)
     if (!profile) {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
     }
