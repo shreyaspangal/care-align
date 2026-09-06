@@ -77,6 +77,13 @@
 }
 
 :root {
+    /* No display font has been chosen yet (a real design decision, not this
+       fix) — aliased to --font-sans so `font-heading` resolves to something
+       intentional instead of silently falling back to the browser default
+       via an undefined custom property. Replace with a loaded next/font
+       variable when a display typeface is picked. */
+    --font-display: var(--font-sans);
+
     /* ── Shadcn base tokens (updated) ── */
     --background: oklch(0.99 0.006 90);
     --foreground: oklch(0.13 0.01 250);
