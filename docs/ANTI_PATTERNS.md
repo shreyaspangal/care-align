@@ -67,6 +67,14 @@ v1 named components, routes, and design tokens after roles (`coordinator`, `pati
 
 **Not a security boundary:** the server never trusts a bound ID — anyone can invoke an action with arbitrary args. RLS + explicit checks (e.g. `verifyPinAuthority`) authorize every write regardless of what was bound.
 
+## 10. Asymmetric ownership checks across sibling endpoints
+
+**Failure mode:** the Phase 2 capture flow has two server-side steps touching the same client-supplied `profileId` — the upload-sign route and the `createDocument` action. The sign route correctly verified the profile belongs to the caller's family (relying on RLS to return `null` otherwise). `createDocument` resolved `family_id` from the caller's own family and inserted it alongside the client-supplied `profileId` **without the same check** — nothing in the database enforces that `documents.profile_id` belongs to `documents.family_id` (it's a bare FK to `profiles(id)`, and the RLS policy on `documents` only checks `documents.family_id = current_family_id()`). Two endpoints that look like they do "the same kind of check" silently didn't, and only one of them actually mattered for data safety, because it was the one writing the row.
+
+**Rule:** whenever a client-supplied ID references another family-scoped table, every endpoint that *writes using that ID* must independently re-verify it belongs to the caller's family — never assume a sibling endpoint (a "sign"/"prepare" step, a GET, a different action) already proved it, and never assume a foreign key alone enforces cross-table family-scoping (it only enforces the row exists, not who owns it). Reads relying on RLS to return `null` are fine for reads; every write path needs its own ownership check right before the insert/update, stated as explicitly as the read-side one. Grep for every place a request body's ID flows into an `.insert()`/`.update()` and confirm each has a preceding ownership query — pattern: `.select('id').eq('id', suppliedId).maybeSingle()`, `!row → reject`.
+
+**Why this one is more severe than a normal bug class:** it produces a cross-family data-integrity hole (a document recorded under the right family but attached to a different family's profile), which is exactly the class of leak Hard Rule 5 exists to prevent — RLS proof tests (PRACTICES §4) check `family_id` scoping on the row being written, but do not currently catch a *correctly-scoped* row that references a *wrongly-scoped* related row. Revisit trigger: extend the RLS proof suite to also assert that every FK column pointing at a family-scoped table can never reference a row from a different family, for at least one adversarial case per foreign key.
+
 ---
 
 *Add entries only after a real incident. Each entry: failure mode → correct pattern → enforcement (if any).*
