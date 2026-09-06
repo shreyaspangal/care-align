@@ -15,7 +15,7 @@ import { join, relative } from 'path'
 const ROOT = process.cwd()
 
 // Folders that require colocated stories
-const SCOPED_DIRS = ['components/primitives', 'components/composites', 'components/features']
+const SCOPED_DIRS = ['components/ui', 'components/composites', 'components/features']
 
 function walk(dir) {
   const results = []
