@@ -22,17 +22,17 @@ This is a greenfield rebuild in the same repo. The original "Patient Coordinator
 
 ## Roadmap
 
-| Phase | What | Status |
-|---|---|---|
-| 0 | Teardown, docs, CI, chassis rename | done (2026-07-15) |
-| 1 | Foundation: schema, RLS, auth, profiles, PostHog | done (2026-07-17) |
-| 2 | Capture + organize pipeline + eval set | in progress |
-| 3 | Timeline + retrieval (visit brief mocked first) | pending |
-| 4 | Visit brief + appointments + reminders | pending |
-| 5 | Onboarding, landing, polish | pending |
-| 6 | Dogfood with the founder's family | pending |
+| Phase | What |
+|---|---|
+| 0 | Teardown, docs, CI, chassis rename |
+| 1 | Foundation: schema, RLS, auth, profiles, PostHog |
+| 2 | Capture + organize pipeline + eval set |
+| 3 | Timeline + retrieval (visit brief mocked first) |
+| 4 | Visit brief + appointments + reminders |
+| 5 | Onboarding, landing, polish |
+| 6 | Dogfood with the founder's family |
 
-Full sequence and exit criteria: `docs/BUILD_PLAN.md`.
+Current status: `AGENTS.md`. Full sequence and exit criteria: `docs/BUILD_PLAN.md`.
 
 ## Docs structure
 

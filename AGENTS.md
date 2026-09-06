@@ -18,9 +18,13 @@ A family's health history, organized and retrievable when the doctor asks. One a
 
 This is a **greenfield rebuild in the same repo**. v1 (coordinator/patient episode tool) was torn down 2026-07-15; its docs live read-only in `docs/archive/carealign-v1/`. The chassis survived: `components/ui/` primitives, the ESLint enforcement stack, `lib/{logger,ratelimit,utils,supabase}`, configs.
 
-## Build Status (2026-07-28)
+## Build Status (2026-09-06)
 
-**Phase 2 IN PROGRESS.** The organize *contract* is landed (`7e79762`): `OrganizeSchema` + atomic fact types (`Term`/`Medication`/`LabTest`, D-012), the `lib/ai/models.ts` model map (Rule 12), and the explain-never-advise system prompt (`lib/ai/organize-prompt.ts`, versioned). Still to build: upload client (item 1), `createDocument` action (2), the `after()` organize step that wires prompt + schema + model (3), timeline card states (4), file-serving route (5). The eval set (item 6 test focus) is founder-supplied and not being chased yet.
+> This is the single source of truth for current build status — no other file (README.md, BUILD_PLAN.md) restates it; they point here instead.
+
+**Phase 2 IN PROGRESS.** Landed so far: the organize contract (`OrganizeSchema` + atomic fact types, D-012), the model map, the explain-never-advise system prompt (versioned); the upload client (canvas re-encode ≤2000px longest edge, EXIF stripped/orientation applied); `createDocument` action (idempotent via unique-constraint replay); the signed-upload route (rate-limited — **currently bypassed for MVP e2e testing, needs a fail-open fix before going live**, see ANTI_PATTERNS #13); `storage.objects` RLS for the `documents` bucket (ANTI_PATTERNS #11, #12). Verified end-to-end in a real browser for both photo and PDF capture. Also landed this phase: CI production-build gate, branch protection, restored Storybook coverage for `components/ui`, root/route error boundaries, numeric perf/a11y targets, auth error-masking fix.
+
+**Still to build (Phase 2):** the `after()` organize step wiring prompt + schema + model, timeline card states, the file-serving route. The eval set (founder-supplied documents) is not being chased yet.
 
 **Phase 1 CLOSED (PRACTICES §8 checklist run 2026-07-17).** Schema + RLS live on the wiped v1 Supabase project; D-003 resolved to Supabase Storage with spike data; PIN authority model in SYSTEM_DESIGN §D; PostHog wired (EU project 215321), all six events verified in live data; CI green including local-Supabase RLS proofs. Sequence and exit criteria: `docs/BUILD_PLAN.md`.
 
@@ -28,7 +32,7 @@ This is a **greenfield rebuild in the same repo**. v1 (coordinator/patient episo
 |---|---|---|
 | 0 | Teardown, docs, CI, chassis rename | done (2026-07-15) |
 | 1 | Foundation: schema, RLS, auth, profiles, PostHog; D-003 resolved | done (2026-07-17) |
-| 2 | Capture + organize pipeline + eval set | in progress (contract + prompt done) |
+| 2 | Capture + organize pipeline + eval set | in progress (capture pipeline built + browser-verified; organize step next) |
 | 3 | Timeline + retrieval (visit brief mocked FIRST) | pending |
 | 4 | Visit brief + appointments + reminders | pending |
 | 5 | Onboarding, landing, polish | pending |

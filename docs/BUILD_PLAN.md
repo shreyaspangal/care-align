@@ -32,7 +32,7 @@ The one destructive phase. Everything here is a `git rm`, so it's fully reversib
 3. **Auth:** `(auth)/register` (creates auth user + `families` row via service client), `(auth)/login`, `proxy.ts` (session refresh; `/` → `/profiles` when authed).
 4. **Profiles:** picker screen (Netflix-style grid), add/edit profile, PIN set + unlock action (bcrypt, short-lived signed cookie), lock badge.
 5. **DAL:** `getFamily`, `getProfiles`, profile helpers — `cache()`-wrapped.
-6. ~~Resolve D-003~~ **D-003 RESOLVED (2026-07-16): Supabase Storage** — spike measured 8x faster uploads from India + working transforms; see DECISIONS.md.
+6. ~~Resolve D-003~~ D-003 resolved — see DECISIONS.md.
 7. **PostHog wiring:** client + server SDK, first tracking-plan events (`profile_created`), error capture, web vitals.
 
 **Test focus:** RLS proof-test (second Supabase user cannot read family A's rows — the v1 silent-failure lesson, now automated); Zod schema units.
