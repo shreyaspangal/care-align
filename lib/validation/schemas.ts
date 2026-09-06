@@ -4,6 +4,34 @@
 import * as z from 'zod'
 import { DOC_TYPES, PROFILE_COLORS, SEXES } from '@/lib/types/domain'
 
+// ── Capture (Phase 2) ────────────────────────────────────────────────────────
+// Client-upload token flow (D-003): sign → direct PUT → createDocument.
+// Bytes never transit our server; these schemas gate the two round-trips that
+// do (the signed-URL request and the post-upload DB write).
+
+export const UPLOAD_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'] as const
+export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024 // 20MB — re-encoded photos land well under this
+
+export const RequestUploadSchema = z.object({
+  profileId: z.uuid(),
+  mimeType: z.enum(UPLOAD_MIME_TYPES),
+})
+export type RequestUploadInput = z.infer<typeof RequestUploadSchema>
+
+export const CreateDocumentSchema = z.object({
+  profileId: z.uuid(),
+  blobKey: z.string().min(1),
+  mimeType: z.enum(UPLOAD_MIME_TYPES),
+  byteSize: z.number().int().positive().max(MAX_UPLOAD_BYTES),
+  // Absent for PDFs — canvas re-encoding only applies to photo captures.
+  width: z.number().int().positive().nullable(),
+  height: z.number().int().positive().nullable(),
+  // Client-generated once per capture attempt; retries reuse it so a flaky
+  // network never produces a duplicate documents row (unique in the schema).
+  idempotencyKey: z.uuid(),
+})
+export type CreateDocumentInput = z.infer<typeof CreateDocumentSchema>
+
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
 export const RegisterSchema = z.object({
