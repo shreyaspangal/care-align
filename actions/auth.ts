@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { after } from 'next/server'
+import { isAuthRetryableFetchError } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { LoginSchema, RegisterSchema } from '@/lib/validation/schemas'
@@ -35,6 +36,9 @@ export async function register(
   })
   if (error || !data.user) {
     log.error('register', 'signUp failed', { error: error?.message })
+    if (error && isAuthRetryableFetchError(error)) {
+      return { error: 'Could not reach the server — check your connection and try again' }
+    }
     return { error: error?.message ?? 'Could not create the account' }
   }
 
@@ -90,6 +94,10 @@ export async function login(
   const supabase = await createClient()
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data)
   if (error || !data.user) {
+    if (error && isAuthRetryableFetchError(error)) {
+      log.error('login', 'signIn network failure', { error: error.message })
+      return { error: 'Could not reach the server — check your connection and try again' }
+    }
     return { error: 'Wrong email or password' }
   }
 
