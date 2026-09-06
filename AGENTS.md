@@ -22,9 +22,9 @@ This is a **greenfield rebuild in the same repo**. v1 (coordinator/patient episo
 
 > This is the single source of truth for current build status — no other file (README.md, BUILD_PLAN.md) restates it; they point here instead.
 
-**Phase 2 IN PROGRESS.** Landed so far: the organize contract (`OrganizeSchema` + atomic fact types, D-012), the model map, the explain-never-advise system prompt (versioned); the upload client (canvas re-encode ≤2000px longest edge, EXIF stripped/orientation applied); `createDocument` action (idempotent via unique-constraint replay); the signed-upload route (rate-limited — **currently bypassed for MVP e2e testing, needs a fail-open fix before going live**, see ANTI_PATTERNS #13); `storage.objects` RLS for the `documents` bucket (ANTI_PATTERNS #11, #12). Verified end-to-end in a real browser for both photo and PDF capture. Also landed this phase: CI production-build gate, branch protection, restored Storybook coverage for `components/ui`, root/route error boundaries, numeric perf/a11y targets, auth error-masking fix.
+**Phase 2 IN PROGRESS.** Landed so far: the organize contract (`OrganizeSchema` + atomic fact types, D-012), the model map, the explain-never-advise system prompt (versioned); the upload client (canvas re-encode ≤2000px longest edge, EXIF stripped/orientation applied); `createDocument` action (idempotent via unique-constraint replay); the signed-upload route (rate-limited — **currently bypassed for MVP e2e testing, needs a fail-open fix before going live**, see ANTI_PATTERNS #13); `storage.objects` RLS for the `documents` bucket (ANTI_PATTERNS #11, #12); the `after()` organize step (`lib/ai/organize.ts`) wiring prompt + schema + model, with a provider-independent safety net (warnings logged, hard Zod boundary before any DB write). Verified end-to-end in a real browser for photo capture, PDF capture, and a full organize run producing correct structured output. **`AI_MODEL_TIER=development` currently points at a free OpenRouter model — dev-only, must switch to Anthropic/OpenAI before the eval set or any pre-launch testing (DECISIONS.md D-004 hard gate)**, see D-004 for the full research on why. Also landed this phase: CI production-build gate, branch protection, restored Storybook coverage for `components/ui`, root/route error boundaries, numeric perf/a11y targets, auth error-masking fix.
 
-**Still to build (Phase 2):** the `after()` organize step wiring prompt + schema + model, timeline card states, the file-serving route. The eval set (founder-supplied documents) is not being chased yet.
+**Still to build (Phase 2):** timeline card states, the file-serving route. The eval set (founder-supplied documents) is not being chased yet — required before D-004's model choice can be trusted for real.
 
 **Phase 1 CLOSED (PRACTICES §8 checklist run 2026-07-17).** Schema + RLS live on the wiped v1 Supabase project; D-003 resolved to Supabase Storage with spike data; PIN authority model in SYSTEM_DESIGN §D; PostHog wired (EU project 215321), all six events verified in live data; CI green including local-Supabase RLS proofs. Sequence and exit criteria: `docs/BUILD_PLAN.md`.
 
@@ -32,7 +32,7 @@ This is a **greenfield rebuild in the same repo**. v1 (coordinator/patient episo
 |---|---|---|
 | 0 | Teardown, docs, CI, chassis rename | done (2026-07-15) |
 | 1 | Foundation: schema, RLS, auth, profiles, PostHog; D-003 resolved | done (2026-07-17) |
-| 2 | Capture + organize pipeline + eval set | in progress (capture pipeline built + browser-verified; organize step next) |
+| 2 | Capture + organize pipeline + eval set | in progress (capture + organize built + browser-verified; timeline cards + file route + eval set next) |
 | 3 | Timeline + retrieval (visit brief mocked FIRST) | pending |
 | 4 | Visit brief + appointments + reminders | pending |
 | 5 | Onboarding, landing, polish | pending |
