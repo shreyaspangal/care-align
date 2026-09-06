@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getProfile } from '@/lib/dal/profiles'
+import { createDocument } from '@/actions/documents'
+import { CaptureButton } from '@/components/features/CaptureButton'
 
 export const metadata: Metadata = { title: 'Timeline — CareAlign' }
 
@@ -24,6 +26,7 @@ export default async function ProfileTimelinePage({
           Switch profile
         </Link>
       </header>
+      <CaptureButton profileId={profile.id} createDocument={createDocument} />
       <p className="text-sm text-muted-foreground">
         Timeline arrives in Phase 3 — capture comes first (Phase 2).
       </p>

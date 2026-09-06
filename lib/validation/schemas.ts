@@ -10,6 +10,7 @@ import { DOC_TYPES, PROFILE_COLORS, SEXES } from '@/lib/types/domain'
 // do (the signed-URL request and the post-upload DB write).
 
 export const UPLOAD_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'] as const
+export type UploadMimeType = (typeof UPLOAD_MIME_TYPES)[number]
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024 // 20MB — re-encoded photos land well under this
 
 export const RequestUploadSchema = z.object({
