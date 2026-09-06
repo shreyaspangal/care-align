@@ -49,5 +49,8 @@ jobs:
       - name: Unit + RLS proof + story tests
         run: pnpm test
 
+      - name: Production build
+        run: pnpm build
+
       # Phase 2+: eval smoke with cached responses (PRACTICES §6) — added in the
       # same commit as its practice row.
