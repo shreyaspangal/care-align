@@ -26,7 +26,7 @@ Mermaid diagrams live in `docs/SYSTEM_DESIGN.md` §Diagrams (rendered natively b
 |---|---|---|
 | Types + lint | `tsc --noEmit`, `pnpm lint:arch` (custom AST rules incl. v2 hard rules) | pre-commit + CI |
 | Unit | Zod schemas, lib functions, capture helpers (vitest) | CI |
-| **RLS proof tests** | Scripted second-user attempts against every table — must return 0 rows. The v1 silent-failure lesson, automated. | CI (against local Supabase) |
+| **RLS proof tests** | Scripted second-user attempts against every table — must return 0 rows. The v1 silent-failure lesson, automated. **Gap (found Phase 2, `docs/ANTI_PATTERNS.md` #11):** only covers `public` schema tables — `storage.objects` and any other non-`public` surface the app writes to are NOT exercised here yet, so a bucket with no RLS policies at all (or a policy that always evaluates false, #12) currently passes this suite green. | CI (against local Supabase) |
 | Stories | Every component has a current `.stories.tsx` (check-stories) | pre-commit + CI |
 | **AI evals** | Real-document eval set (§6) | on every prompt/model change + weekly |
 | E2E | **Deliberately deferred** until users beyond the founder's family exist (revisit trigger). Dogfooding with real data covers the integration surface at current scale — this is a decision, not an omission. |

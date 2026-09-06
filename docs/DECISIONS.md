@@ -40,6 +40,8 @@
 
 **Consequences:** `@vercel/blob` and `BLOB_READ_WRITE_TOKEN` removed; capture pipeline uploads to the private `documents` bucket; the document-file route serves auth-checked signed URLs; thumbnails can use built-in transforms. **Revisit trigger:** egress costs at real scale.
 
+**Gap found in Phase 2 (2026-09-06):** the bucket was created via the dashboard during the spike, never via migration — it shipped with zero RLS policies (default-deny) and blocked every upload until caught during capture testing. Fixed with `supabase/migrations/20260906000000_storage_documents_rls.sql` + a same-day correction for a column-shadowing bug (`docs/ANTI_PATTERNS.md` #11, #12). Any future bucket must get its policies written as a migration in the same phase it's introduced, not left to be discovered later.
+
 ## D-004 — Document-understanding model: Claude via AI SDK v6 — **eval-decided, provisional**
 
 | Option | For | Against |
