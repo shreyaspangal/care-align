@@ -1,8 +1,10 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { CreateDocumentSchema, type CreateDocumentInput } from '@/lib/validation/schemas'
+import { organizeDocument } from '@/lib/ai/organize'
 import { createLogger } from '@/lib/logger'
 
 const log = createLogger('actions:documents')
@@ -83,5 +85,8 @@ export async function createDocument(input: CreateDocumentInput): Promise<Create
   }
 
   revalidatePath(`/p/${parsed.data.profileId}`)
+  // Only the genuine first insert triggers organize — a replayed retry above
+  // already returned early, so this never double-runs it for one document.
+  after(() => organizeDocument(data.id))
   return { success: true, documentId: data.id }
 }
