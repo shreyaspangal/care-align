@@ -22,6 +22,15 @@
 - **Capture is sacred:** a selected photo must never be silently lost — uploaded bytes always produce a visible timeline entry, even when AI organization fails.
 - **DPDP posture:** health data of family members under the household's own custody ("pre-existing exposure" model); private blob storage; no third-party sharing surface in V1.
 
+### Performance & accessibility targets
+
+Numbers, not adjectives — so a later check has something to pass or fail against. Measured against a mid-range Android phone on Indian 4G (the real usage profile, not a US-region CI runner), via PostHog's real-user monitoring (D-007) rather than a synthetic benchmark.
+
+- **Core Web Vitals (Google's page-speed metrics), p75:** Largest Contentful Paint (time to the biggest visible element) < 2.5s · Interaction to Next Paint (tap-to-response time) < 200ms · Cumulative Layout Shift (how much content jumps around while loading) < 0.1.
+- **Accessibility standard:** WCAG (Web Content Accessibility Guidelines) 2.2, level AA, as the floor for every shipped screen.
+- **Touch targets:** minimum 44×44px on any tappable element (exceeds WCAG AA's 24px minimum — deliberate, for one-handed use in a clinic corridor).
+- **Reflow:** every screen usable at 320px width and 200% browser zoom without horizontal scrolling.
+
 ### Explicitly out of V1
 
 Hospital/insurer discovery (V2), sharing outside the family account, insurance claims, regional languages, anything advisory, offline-first sync, push notifications beyond appointment reminders.

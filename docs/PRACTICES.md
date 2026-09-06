@@ -76,6 +76,7 @@ North-star check (monthly, PostHog): **retrieval moments per family per month** 
 1. `tsc` / `lint:arch` / `vitest` / stories — green locally AND in CI
 2. RLS proof tests green (Phase 1+); eval score ≥ previous (Phase 2+)
 3. New events from the tracking plan firing (verified in PostHog live view)
+3a. Opened the deployed URL (not just localhost) and walked this phase's happy path — everything above verifies the local/CI environment, never the one users actually touch
 4. Diagrams current with this phase's changes
 5. DECISIONS.md updated for anything new that was chosen
 6. Dogfooded with real data; failures converted to eval cases / issues
