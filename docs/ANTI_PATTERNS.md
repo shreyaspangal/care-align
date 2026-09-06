@@ -33,7 +33,7 @@ When unsure, read `node_modules/next/dist/docs/` — not memory.
 
 ## 3. AI SDK v6 deprecated APIs
 
-`generateObject` / `streamObject` are `@deprecated` in `ai@6+`. The canonical pattern is `generateText + Output.object({ schema })`; the typed result is `result.experimental_output`; the error class is `NoOutputGeneratedError` (not `NoObjectGeneratedError`); file parts use `mediaType` (not `mimeType`). `pnpm lint:arch` fails CI on the deprecated APIs. Verify against `node_modules` types, never memory.
+`generateObject` / `streamObject` are `@deprecated` in `ai@6+`. The canonical pattern is `generateText({ output: Output.object({ schema }) })`; the typed result is `result.output` (`result.experimental_output` existed briefly as the primary name but is now itself `@deprecated` — this moved once already inside `ai@6`, so re-check `node_modules` types on every touch rather than trusting a prior read of this file); the error class is `NoOutputGeneratedError` (not `NoObjectGeneratedError`); file parts use `mediaType` (not `mimeType`). `pnpm lint:arch` fails CI on the deprecated APIs. Verify against `node_modules` types, never memory.
 
 ## 4. Client components importing server actions
 

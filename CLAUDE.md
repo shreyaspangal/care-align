@@ -48,7 +48,7 @@ Path alias `@/*` → repo root (no `src/`).
 
 10. **DB-aligned union types live in one module** (`lib/types/domain.ts` when created) and are imported everywhere — never redefined inline.
 
-11. **AI SDK structured output = `generateText + Output.object({ schema })`.** `generateObject`/`streamObject` are deprecated. Result: `result.experimental_output`. Error: `NoOutputGeneratedError`. FilePart uses `mediaType`.
+11. **AI SDK structured output = `generateText({ output: Output.object({ schema }) })`.** `generateObject`/`streamObject` are deprecated. Result: `result.output` (`result.experimental_output` still exists but is itself deprecated — verify against `node_modules` types, this has already moved once). Error: `NoOutputGeneratedError`. FilePart uses `mediaType`.
 
 12. **No hardcoded model strings.** Use the model map (`lib/ai/models.ts` when created); dev/prod tiers via env.
 
