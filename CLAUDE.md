@@ -28,7 +28,7 @@ Path alias `@/*` → repo root (no `src/`).
 
 ## Hard Rules — Do Not Violate
 
-1. **Explain, never advise.** AI output describes what a document says and defines terms. It NEVER assesses severity, compares to norms, recommends actions, or interprets clinically. Advisory language in any AI output is a hard eval failure regardless of accuracy (`docs/PRACTICES.md` §6). This is the product's safety boundary and its legal one.
+1. **Explain, never advise.** AI output describes what a document says and defines terms. It NEVER assesses severity, compares to norms, recommends actions, or interprets clinically. Advisory language in any AI output is a hard eval failure regardless of accuracy (`docs/PRACTICES.md` §6). This is the product's safety boundary and its legal one — the regulatory basis (CDSCO medical-device-software classification, DPDP Act) is researched in `docs/DECISIONS.md` D-014 and tracked as a live checklist in `docs/INDIA_COMPLIANCE.md`; neither is restated here.
 
 2. **Verbatim-or-null extraction.** Extracted fields (dates, names, medications, tests) are copied as written on the document or left `null`. Never inferred, normalized into existence, or defaulted (no upload-date-as-document-date, no empty strings). UI renders nulls honestly ("Date unknown").
 

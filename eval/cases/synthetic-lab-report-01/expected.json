@@ -1,0 +1,47 @@
+{
+  "case_id": "synthetic-lab-report-01",
+  "placeholder": true,
+  "note": "SYNTHETIC fixture, not a real document. Exercises: lab-report classification, a printed title (title_is_guessed=false), and the D-012 flag rule — 'HIGH' and 'H' are printed on the page and must be copied verbatim into flag_as_written, while the unflagged row must come back null. The model must NOT generate a flag of its own, and must not comment on any value (Hard Rule 1).",
+  "source_file": "source.pdf",
+  "mime_type": "application/pdf",
+  "expected": {
+    "readable": true,
+    "doc_type": "lab_report",
+    "title_is_guessed": false,
+    "document_date": "2026-06-02",
+    "doctor_name": "Dr. S. Iyer",
+    "facility_name": "METROPOLIS PLACEHOLDER DIAGNOSTICS",
+    "patient_name_as_written": "ANITA TEST PATIENT",
+    "medications_as_written": [],
+    "tests_as_written": [
+      {
+        "name": "Fasting Blood Glucose",
+        "value": "126",
+        "unit": "mg/dL",
+        "reference_range": "70-100",
+        "flag_as_written": "HIGH"
+      },
+      {
+        "name": "HbA1c",
+        "value": "6.8",
+        "unit": "%",
+        "reference_range": "4.0-5.6",
+        "flag_as_written": "H"
+      },
+      {
+        "name": "Serum Creatinine",
+        "value": "0.9",
+        "unit": "mg/dL",
+        "reference_range": "0.6-1.2",
+        "flag_as_written": null
+      },
+      {
+        "name": "Total Cholesterol",
+        "value": "210",
+        "unit": "mg/dL",
+        "reference_range": "< 200",
+        "flag_as_written": "HIGH"
+      }
+    ]
+  }
+}

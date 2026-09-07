@@ -1,0 +1,17 @@
+SYNTHETIC TEST DOCUMENT - NOT A REAL MEDICAL RECORD
+CareAlign eval fixture. Every name, date and value below is invented.
+
+METROPOLIS PLACEHOLDER DIAGNOSTICS
+LABORATORY TEST REPORT
+
+Patient Name: ANITA TEST PATIENT
+Referred By: Dr. S. Iyer
+Report Date: 02/06/2026
+
+Test                     Result   Unit     Reference Range   Flag
+Fasting Blood Glucose    126      mg/dL    70-100            HIGH
+HbA1c                    6.8      %        4.0-5.6           H
+Serum Creatinine         0.9      mg/dL    0.6-1.2
+Total Cholesterol        210      mg/dL    < 200             HIGH
+
+End of report.

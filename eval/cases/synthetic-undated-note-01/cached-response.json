@@ -1,0 +1,29 @@
+{
+  "recorded_at": "2026-09-07T07:43:24.050Z",
+  "prompt_version": "2026-09-07.1",
+  "model": "dots-studio/dots-3-note-preview:free",
+  "source": "live model call",
+  "output": {
+    "readable": true,
+    "doc_type": "other",
+    "title": "Clinical Note",
+    "title_is_guessed": false,
+    "document_date": null,
+    "doctor_name": "Dr. P. Kulkarni",
+    "facility_name": null,
+    "patient_name_as_written": "SUNIL TEST PATIENT",
+    "what_it_says": "This document is a clinical note for patient SUNIL TEST PATIENT. It records that the patient complains of an intermittent headache for two weeks and does not have a fever. The note is signed by Dr. P. Kulkarni.",
+    "terms": [
+      {
+        "term": "Clinical Note",
+        "plain_explanation": "A written record of a patient's health concerns and symptoms documented by a doctor."
+      },
+      {
+        "term": "intermittent headache",
+        "plain_explanation": "A headache that comes and goes, rather than being constant or continuous."
+      }
+    ],
+    "medications_as_written": [],
+    "tests_as_written": []
+  }
+}

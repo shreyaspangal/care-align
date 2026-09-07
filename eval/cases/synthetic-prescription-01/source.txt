@@ -1,0 +1,20 @@
+SYNTHETIC TEST DOCUMENT - NOT A REAL MEDICAL RECORD
+CareAlign eval fixture. Every name, date and value below is invented.
+
+SUNRISE FAMILY CLINIC
+14 Placeholder Road, Testville
+
+Dr. Meera Nadkarni
+MBBS, Reg. No. TEST/0001
+
+Patient: RAVI TEST PATIENT
+Age: 54 / M
+Date: 14/03/2026
+
+Rx
+
+1. Metformin 500mg    Tab    1-0-1    x 30 days
+2. Telmisartan 40mg   Tab    OD       x 30 days
+3. Shelcal 500mg      Tab    HS       x 15 days
+
+Review after 1 month.

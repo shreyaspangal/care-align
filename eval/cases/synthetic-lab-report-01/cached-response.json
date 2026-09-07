@@ -1,0 +1,78 @@
+{
+  "recorded_at": "2026-09-07T07:41:28.716Z",
+  "prompt_version": "2026-09-07.1",
+  "model": "dots-studio/dots-3-note-preview:free",
+  "source": "live model call",
+  "output": {
+    "readable": true,
+    "doc_type": "lab_report",
+    "title": "LABORATORY TEST REPORT",
+    "title_is_guessed": false,
+    "document_date": "2026-06-02",
+    "doctor_name": "Dr. S. Iyer",
+    "facility_name": "METROPOLIS PLACEHOLDER DIAGNOSTICS",
+    "patient_name_as_written": "ANITA TEST PATIENT",
+    "what_it_says": "This is a laboratory test report from METROPOLIS PLACEHOLDER DIAGNOSTICS for patient ANITA TEST PATIENT, referred by Dr. S. Iyer. The document lists blood test results for Fasting Blood Glucose, HbA1c, Serum Creatinine, and Total Cholesterol, including their values, units, reference ranges, and flags.",
+    "terms": [
+      {
+        "term": "Fasting Blood Glucose",
+        "plain_explanation": "a blood sugar measurement taken after not eating for several hours"
+      },
+      {
+        "term": "HbA1c",
+        "plain_explanation": "a blood test that measures average blood sugar levels over the past two to three months"
+      },
+      {
+        "term": "Serum Creatinine",
+        "plain_explanation": "a waste product normally filtered out by the kidneys, used to check kidney function"
+      },
+      {
+        "term": "Total Cholesterol",
+        "plain_explanation": "the total amount of cholesterol (a waxy fat) measured in a blood sample"
+      },
+      {
+        "term": "mg/dL",
+        "plain_explanation": "milligrams per deciliter, a standard unit used to measure the concentration of substances in blood"
+      },
+      {
+        "term": "Reference Range",
+        "plain_explanation": "the typical range of values found in healthy individuals, used for comparison"
+      },
+      {
+        "term": "Flag",
+        "plain_explanation": "a marker indicating that a result falls outside the standard reference range"
+      }
+    ],
+    "medications_as_written": [],
+    "tests_as_written": [
+      {
+        "name": "Fasting Blood Glucose",
+        "value": "126",
+        "unit": "mg/dL",
+        "reference_range": "70-100",
+        "flag_as_written": "HIGH"
+      },
+      {
+        "name": "HbA1c",
+        "value": "6.8",
+        "unit": "%",
+        "reference_range": "4.0-5.6",
+        "flag_as_written": "H"
+      },
+      {
+        "name": "Serum Creatinine",
+        "value": "0.9",
+        "unit": "mg/dL",
+        "reference_range": "0.6-1.2",
+        "flag_as_written": null
+      },
+      {
+        "name": "Total Cholesterol",
+        "value": "210",
+        "unit": "mg/dL",
+        "reference_range": "< 200",
+        "flag_as_written": "HIGH"
+      }
+    ]
+  }
+}

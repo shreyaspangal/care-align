@@ -17,6 +17,8 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "lint:stories": "node scripts/check-stories.mjs",
+    "eval": "node --env-file-if-exists=.env.local --import ./eval/loader.mjs eval/run.mjs --mode=live",
+    "eval:smoke": "node --import ./eval/loader.mjs eval/run.mjs --mode=cached",
     "lint:arch": "tsc --noEmit && eslint --no-error-on-unmatched-pattern \"components/**/*.{ts,tsx}\" \"actions/**/*.{ts,tsx}\" \"lib/**/*.{ts,tsx}\" \"app/**/*.{ts,tsx}\" && node scripts/check-stories.mjs"
   },
   "dependencies": {

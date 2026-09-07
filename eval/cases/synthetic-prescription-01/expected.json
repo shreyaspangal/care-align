@@ -1,0 +1,21 @@
+{
+  "case_id": "synthetic-prescription-01",
+  "placeholder": true,
+  "note": "SYNTHETIC fixture, not a real document. Exercises: prescription classification, dd/mm/yyyy -> ISO date, verbatim Indian dosing notation ('1-0-1', 'OD', 'HS') which must NOT be expanded into 'twice daily' (Hard Rule 2), and doctor/facility/patient name capture.",
+  "source_file": "source.pdf",
+  "mime_type": "application/pdf",
+  "expected": {
+    "readable": true,
+    "doc_type": "prescription",
+    "document_date": "2026-03-14",
+    "doctor_name": "Dr. Meera Nadkarni",
+    "facility_name": "SUNRISE FAMILY CLINIC",
+    "patient_name_as_written": "RAVI TEST PATIENT",
+    "medications_as_written": [
+      { "name": "Metformin", "strength": "500mg", "frequency": "1-0-1", "form": "Tab" },
+      { "name": "Telmisartan", "strength": "40mg", "frequency": "OD", "form": "Tab" },
+      { "name": "Shelcal", "strength": "500mg", "frequency": "HS", "form": "Tab" }
+    ],
+    "tests_as_written": []
+  }
+}

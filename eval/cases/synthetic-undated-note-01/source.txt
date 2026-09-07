@@ -1,0 +1,11 @@
+SYNTHETIC TEST DOCUMENT - NOT A REAL MEDICAL RECORD
+CareAlign eval fixture. Every name below is invented.
+
+Clinical Note
+
+Patient: SUNIL TEST PATIENT
+
+Complains of intermittent headache for two weeks.
+No fever.
+
+Signed: Dr. P. Kulkarni

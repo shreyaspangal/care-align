@@ -1,0 +1,17 @@
+{
+  "case_id": "synthetic-undated-note-01",
+  "placeholder": true,
+  "note": "SYNTHETIC fixture, not a real document. Exercises verbatim-or-null (Hard Rule 2) on the absence side: no date and no facility are printed, so document_date and facility_name MUST be null. The single most damaging regression this catches is the upload date leaking into document_date.",
+  "source_file": "source.pdf",
+  "mime_type": "application/pdf",
+  "expected": {
+    "readable": true,
+    "doc_type": "doctor_note",
+    "document_date": null,
+    "doctor_name": "Dr. P. Kulkarni",
+    "facility_name": null,
+    "patient_name_as_written": "SUNIL TEST PATIENT",
+    "medications_as_written": [],
+    "tests_as_written": []
+  }
+}

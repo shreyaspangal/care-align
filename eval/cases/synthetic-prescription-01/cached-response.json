@@ -1,0 +1,60 @@
+{
+  "recorded_at": "2026-09-07T07:43:04.442Z",
+  "prompt_version": "2026-09-07.1",
+  "model": "dots-studio/dots-3-note-preview:free",
+  "source": "live model call",
+  "output": {
+    "readable": true,
+    "doc_type": "prescription",
+    "title": "Prescription",
+    "title_is_guessed": true,
+    "document_date": "2026-03-14",
+    "doctor_name": "Dr. Meera Nadkarni",
+    "facility_name": "SUNRISE FAMILY CLINIC",
+    "patient_name_as_written": "RAVI TEST PATIENT",
+    "what_it_says": "This is a prescription document from Sunrise Family Clinic for patient Ravi Test Patient, dated 14 March 2026. It lists three prescribed medications: Metformin 500mg, Telmisartan 40mg, and Shelcal 500mg, with specific daily schedules and durations, and notes that the patient should be reviewed after one month.",
+    "terms": [
+      {
+        "term": "1-0-1",
+        "plain_explanation": "A shorthand way to write a dosage schedule, indicating how many pills to take at different times of the day (typically morning, midday, and evening)."
+      },
+      {
+        "term": "OD",
+        "plain_explanation": "An abbreviation for 'once daily', meaning the medication should be taken once every day."
+      },
+      {
+        "term": "HS",
+        "plain_explanation": "An abbreviation derived from Latin meaning 'at bedtime', indicating the medicine should be taken just before sleeping."
+      },
+      {
+        "term": "Tab",
+        "plain_explanation": "An abbreviation for 'tablet', meaning a solid pill taken by mouth."
+      },
+      {
+        "term": "MBBS",
+        "plain_explanation": "A standard medical degree abbreviation for Bachelor of Medicine and Bachelor of Surgery, indicating the doctor's qualification."
+      }
+    ],
+    "medications_as_written": [
+      {
+        "name": "Metformin",
+        "strength": "500mg",
+        "frequency": "1-0-1",
+        "form": "Tab"
+      },
+      {
+        "name": "Telmisartan",
+        "strength": "40mg",
+        "frequency": "OD",
+        "form": "Tab"
+      },
+      {
+        "name": "Shelcal",
+        "strength": "500mg",
+        "frequency": "HS",
+        "form": "Tab"
+      }
+    ],
+    "tests_as_written": []
+  }
+}

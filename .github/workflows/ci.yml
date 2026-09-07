@@ -49,8 +49,14 @@ jobs:
       - name: Unit + RLS proof + story tests
         run: pnpm test
 
+      # Replays committed model recordings through the real scorer: no API key,
+      # no network, no cost. Proves the eval harness itself still works — cases
+      # load, cached responses still satisfy OrganizeSchema, the scorer still
+      # catches advisory language and field mismatches. It does NOT score model
+      # or prompt quality; that needs a live run (`pnpm eval`, PRACTICES §6),
+      # which is manual and gated on DECISIONS.md D-004's model-tier trigger.
+      - name: AI eval smoke (cached responses)
+        run: pnpm eval:smoke
+
       - name: Production build
         run: pnpm build
-
-      # Phase 2+: eval smoke with cached responses (PRACTICES §6) — added in the
-      # same commit as its practice row.

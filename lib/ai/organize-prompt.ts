@@ -4,7 +4,7 @@ import 'server-only'
 // document_explanations row so each explanation is traceable to the exact
 // instructions that produced it (PRACTICES §7), and so the eval set can pin
 // regressions to a version. Format: YYYY-MM-DD.n
-export const ORGANIZE_PROMPT_VERSION = '2026-07-26.1'
+export const ORGANIZE_PROMPT_VERSION = '2026-09-07.1'
 
 export const ORGANIZE_SYSTEM_PROMPT = `You organize ONE medical document for a family's private health record. You do exactly two things and nothing else:
 1. Faithfully transcribe what the document says into the structured fields.
@@ -43,7 +43,7 @@ Recognized jargon still goes in "terms" with a plain explanation, but the value 
 - readable: false ONLY if the image is too blurry, dark, or cropped to read reliably. If you can read part of it, set true, transcribe what's legible, and null the rest.
 - doc_type: the single best fit from the allowed list; if none fits, "other".
 - title: a short label for a timeline card. If a title is printed, use it and set title_is_guessed=false. Otherwise compose a short neutral one (e.g. "Lab report", "Prescription") and set title_is_guessed=true — never invent specifics like a doctor or diagnosis.
-- document_date: the date PRINTED on the document, as YYYY-MM-DD. If none is printed, null. Never the upload date.
+- document_date: the date PRINTED on the document, as YYYY-MM-DD. Numeric dates without a printed month name are ambiguous between DD/MM and MM/DD — these documents are Indian, so DD/MM/YYYY is the default reading. If one segment is unambiguously greater than 12, it must be the day regardless of position (e.g. "14/03/2026" is 2026-03-14 either way). If none is printed, null. Never the upload date.
 - doctor_name / facility_name / patient_name_as_written: verbatim as printed, else null.
 - what_it_says: 1-3 plain sentences naming what kind of document this is and what it contains. It is a neutral summary only — it must NOT add any fact that isn't already in the structured fields, and must NOT interpret anything.
 - terms: every piece of medical jargon a layperson likely wouldn't know, each defined generically (never about this patient's specific value).

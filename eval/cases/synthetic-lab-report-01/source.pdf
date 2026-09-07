@@ -1,0 +1,53 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 760 >>
+stream
+BT
+/F1 11 Tf
+15 TL
+56 786 Td
+(SYNTHETIC TEST DOCUMENT - NOT A REAL MEDICAL RECORD) Tj T*
+(CareAlign eval fixture. Every name, date and value below is invented.) Tj T*
+() Tj T*
+(METROPOLIS PLACEHOLDER DIAGNOSTICS) Tj T*
+(LABORATORY TEST REPORT) Tj T*
+() Tj T*
+(Patient Name: ANITA TEST PATIENT) Tj T*
+(Referred By: Dr. S. Iyer) Tj T*
+(Report Date: 02/06/2026) Tj T*
+() Tj T*
+(Test                     Result   Unit     Reference Range   Flag) Tj T*
+(Fasting Blood Glucose    126      mg/dL    70-100            HIGH) Tj T*
+(HbA1c                    6.8      %        4.0-5.6           H) Tj T*
+(Serum Creatinine         0.9      mg/dL    0.6-1.2) Tj T*
+(Total Cholesterol        210      mg/dL    < 200             HIGH) Tj T*
+() Tj T*
+(End of report.) Tj T*
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000001052 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1149
+%%EOF

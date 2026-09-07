@@ -1,0 +1,56 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 641 >>
+stream
+BT
+/F1 11 Tf
+15 TL
+56 786 Td
+(SYNTHETIC TEST DOCUMENT - NOT A REAL MEDICAL RECORD) Tj T*
+(CareAlign eval fixture. Every name, date and value below is invented.) Tj T*
+() Tj T*
+(SUNRISE FAMILY CLINIC) Tj T*
+(14 Placeholder Road, Testville) Tj T*
+() Tj T*
+(Dr. Meera Nadkarni) Tj T*
+(MBBS, Reg. No. TEST/0001) Tj T*
+() Tj T*
+(Patient: RAVI TEST PATIENT) Tj T*
+(Age: 54 / M) Tj T*
+(Date: 14/03/2026) Tj T*
+() Tj T*
+(Rx) Tj T*
+() Tj T*
+(1. Metformin 500mg    Tab    1-0-1    x 30 days) Tj T*
+(2. Telmisartan 40mg   Tab    OD       x 30 days) Tj T*
+(3. Shelcal 500mg      Tab    HS       x 15 days) Tj T*
+() Tj T*
+(Review after 1 month.) Tj T*
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000933 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1030
+%%EOF
