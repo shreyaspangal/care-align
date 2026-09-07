@@ -78,6 +78,7 @@ Path alias `@/*` → repo root (no `src/`).
 | Full design (routes, schema, pipeline, diagrams) | `docs/SYSTEM_DESIGN.md` |
 | Engineering process + phase-gate checklist + tracking plan | `docs/PRACTICES.md` |
 | Decision records (stack choices + rationale) | `docs/DECISIONS.md` |
+| **India regulatory compliance — rule checklist + enforcement pointers + user-facing trust copy** | `docs/INDIA_COMPLIANCE.md` |
 | Build sequence + exit criteria | `docs/BUILD_PLAN.md` |
 | Anti-patterns (scar tissue) | `docs/ANTI_PATTERNS.md` |
 | Claude Code workflow (subagents, models, skills) | `docs/AGENTIC_WORKFLOW.md` |
