@@ -86,7 +86,26 @@ function OrganizedCard({ document }: { document: DocumentSummary }) {
           <span>{[document.doctorName, document.facilityName].filter(Boolean).join(' — ')}</span>
         )}
       </CardContent>
+      <CardFooter>
+        <ViewFileLink documentId={document.id} />
+      </CardFooter>
     </Card>
+  )
+}
+
+// Hard Rule 7: the client never sees a raw storage URL — this link only
+// ever points at the authenticated file route, which mints a short-lived
+// signed URL server-side after checking family membership.
+function ViewFileLink({ documentId }: { documentId: string }) {
+  return (
+    <a
+      href={`/api/documents/${documentId}/file`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-sm font-medium text-accent-base underline-offset-4 hover:underline"
+    >
+      View file
+    </a>
   )
 }
 
@@ -143,6 +162,7 @@ function NeedsReviewCard({
           </Button>
         </div>
         <CardTitle>We couldn&apos;t organize this one automatically</CardTitle>
+        <ViewFileLink documentId={document.id} />
       </CardHeader>
       <CardContent>
         <form action={formAction} className="flex flex-col gap-3">

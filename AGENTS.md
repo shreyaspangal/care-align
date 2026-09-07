@@ -26,7 +26,9 @@ This is a **greenfield rebuild in the same repo**. v1 (coordinator/patient episo
 
 Timeline card states also landed (`components/features/DocumentCard.tsx`): Organizing… (skeleton, status='uploaded') / organized (filled, success-tinted) / needs-review (manual-details form via `updateDocumentDetails` + `retryOrganize` button) — all three verified live against real data, including a full needs_review → retry → organized round trip.
 
-**Still to build (Phase 2):** the file-serving route; the upload-failure client-side retry-with-backoff (BUILD_PLAN item 4's other half — no DB row exists yet at that point, so it's separate from the card states above). The eval set (founder-supplied documents) is not being chased yet — required before D-004's model choice can be trusted for real.
+The file-serving route also landed (`app/api/documents/[documentId]/file/route.ts` + `getDocumentFile` in `lib/dal/documents.ts`): Hard Rule 7 — the client never receives a raw `blob_key`, only a link to this route, which checks family membership via RLS before minting a 60s signed URL and redirecting. Wired into `DocumentCard`'s organized and needs-review states as a "View file" link. Verified live: unauthenticated requests are redirected to `/login` by the auth proxy before reaching the route; an authenticated request for a real document resolves to a working signed Supabase Storage URL.
+
+**Still to build (Phase 2):** the upload-failure client-side retry-with-backoff (BUILD_PLAN item 4's other half — no DB row exists yet at that point, so it's separate from the card states above). The eval set (founder-supplied documents) is not being chased yet — required before D-004's model choice can be trusted for real.
 
 **Phase 1 CLOSED (PRACTICES §8 checklist run 2026-07-17).** Schema + RLS live on the wiped v1 Supabase project; D-003 resolved to Supabase Storage with spike data; PIN authority model in SYSTEM_DESIGN §D; PostHog wired (EU project 215321), all six events verified in live data; CI green including local-Supabase RLS proofs. Sequence and exit criteria: `docs/BUILD_PLAN.md`.
 

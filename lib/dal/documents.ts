@@ -59,3 +59,21 @@ export const getDocuments = cache(async (profileId: string): Promise<DocumentSum
     .order('captured_at', { ascending: false })
   return (data ?? []).map(toSummary)
 })
+
+export type DocumentFile = {
+  blobKey: string
+  mimeType: string
+}
+
+// blob_key is deliberately excluded from DocumentSummary (Hard Rule 7 — no
+// raw storage paths reach the client). This is the one place a caller may
+// read it, to mint a short-lived signed URL from it server-side.
+export const getDocumentFile = cache(async (documentId: string): Promise<DocumentFile | null> => {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('documents')
+    .select('blob_key, mime_type')
+    .eq('id', documentId)
+    .maybeSingle()
+  return data ? { blobKey: data.blob_key, mimeType: data.mime_type } : null
+})
