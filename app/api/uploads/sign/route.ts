@@ -30,16 +30,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    // TEMPORARILY BYPASSED for MVP end-to-end testing: uploadRatelimit.limit()
-    // currently fails CLOSED (throws → this route 500s) if Upstash itself is
-    // unreachable, which would block capture during a rate-limiter outage —
-    // conflicts with Rule 3 (capture is sacred). Needs a fail-open fix + its
-    // own test setup before this goes live to real users. Re-enable then.
-    // const { success } = await uploadRatelimit.limit(user.id)
-    // if (!success) {
-    //   return NextResponse.json({ error: 'Too many uploads — try again later' }, { status: 429 })
-    // }
-    void uploadRatelimit
+    // Rule 3 (capture is sacred): a rate-limit *hit* is a real domain
+    // rejection and fails closed (429). An infra failure reaching Upstash
+    // itself is not a domain rejection — it must not block capture, so it
+    // fails open (logged, request proceeds) per ANTI_PATTERNS #13.
+    try {
+      const { success } = await uploadRatelimit.limit(user.id)
+      if (!success) {
+        return NextResponse.json({ error: 'Too many uploads — try again later' }, { status: 429 })
+      }
+    } catch (err) {
+      log.error('sign', 'rate limiter unreachable, failing open', {
+        profileId,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
 
     // RLS scopes this to the caller's family — a null row means either the
     // profile doesn't exist or belongs to another family, and we don't
