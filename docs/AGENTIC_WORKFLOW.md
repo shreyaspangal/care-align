@@ -52,21 +52,35 @@ Installed today: `grill-with-docs`, `frontend-design`, `tdd-workflow`, `code-rev
 2. **`eval-run`** — executes the organize eval set, reports per-field accuracy + boundary violations vs. last `prompt_version`. (Phase 2)
 3. **`rls-audit`** — spawns an Explore pass over migrations + a scripted second-user test against every table. (Phase 1)
 
-## 6. Hooks + CI (the always-on layer)
+## 6. Permissions + hooks + CI (the always-on layer — enforced whether the agent "chooses to" or not)
 
-- **Pre-commit** (`.githooks`): tsc + lint:arch + check-stories — already active.
-- **PostToolUse hook**: `pnpm lint:arch` auto-fires when component/action files are written — already configured in `.claude/settings.json`.
+**Permissions** (`.claude/settings.local.json`): an **allow-list** only — a short list of specific `WebFetch` domains, `WebSearch`, and one pinned `Bash` command. There is **no deny-list** configured (secrets directories, prod configs, destructive commands) — that class of protection currently relies on the system-prompt-level "confirm before risky actions" rule, not a hard-enforced settings block. Revisit if this project ever needs a stronger guarantee than agent judgment.
+
+**Hooks** — shell commands that fire unconditionally, not something a model can skip:
+- **Git pre-commit** (`.githooks/pre-commit`, wired via `git config core.hooksPath .githooks`): tsc + lint:arch + check-stories, blocks the commit itself. **Verify this is actually wired after every fresh clone** — `core.hooksPath` defaults back to `.git/hooks` (empty) if the `prepare` script never ran or was reset; a missing hookspath fails silently (no error, just no gate) and was found un-wired once already (2026-09-07, fixed by rerunning `git config core.hooksPath .githooks`).
+- **Claude Code PostToolUse hook** (`.claude/settings.json`): `pnpm lint:arch` auto-fires after every `Edit`/`Write` on a `.ts`/`.tsx` file, surfacing failures back into the conversation as a system message — this runs regardless of what the agent intends to do next.
 - **GitHub Actions** (Phase 0): the PRACTICES §5 chain on every push; Impeccable's deterministic detector joins the chain in Phase 5 (it's rule-based, no LLM — CI-safe).
 - Red CI = phase gate blocked; no exceptions.
 
-## 7. Observability of the workflow itself
+## 7. Standing collaboration rules (founder-set, apply to every session)
+
+These aren't in any settings file — they're working agreements the founder has stated directly, tracked in Claude Code's memory across sessions, and repeated here so a fresh session (or a fresh subagent) doesn't have to rediscover them the hard way.
+
+- **Commit confirmation.** Never run `git commit` without showing the diff/results and getting an explicit "yes" for *that specific batch* of work — an earlier approval never carries forward to the next round of changes, no matter how similar in shape or how green the gates are.
+- **No unrequested writes.** Never create or edit a file (code, docs, scripts) without saying what's about to change and getting a go-ahead first.
+- **Browser-test before done.** For any UI change, drive it live with Playwright against the running dev server before calling it done — `tsc`/`lint:arch`/unit tests prove code correctness, not visual or flow correctness.
+- **Docs before trial-and-error.** Before iterating with speculative changes against a live/production system, exhaust official documentation first, then ask before any remaining guesswork — never loop blindly against something real.
+- **Stay in the loop on issues.** On any blocker, stop and report/ask promptly rather than trying several silent workarounds — the founder should never feel like they're "going blind" while an agent hits a wall alone.
+- **No throwaway scripts.** Prefer a single direct one-off command (e.g. `node --input-type=module -e "..."`) over writing-then-deleting a scratch file, and don't re-verify or re-poll something the elapsed time/context already makes obvious.
+- **Single source of truth for docs.** A status/state fact lives in exactly one canonical file; every other doc points to it, never restates it (`AGENTS.md` = build status, `DECISIONS.md` = decision status via each entry's own header).
+- **Honest re-evaluation under pushback.** "Doesn't this create confusion / is this standard" is a request to actually re-audit for concrete evidence (duplication, prior incidents), not to restate the original reasoning more confidently.
+- **Model/effort routing for subagents.** State the model + effort level before spawning any subagent; route high-reasoning work (deep debugging, audits, real tradeoffs) to an Opus/high-effort agent rather than reasoning it out inline in a Sonnet-medium main thread.
+- **Deviation from wedge/scope** gets flagged in the moment, not absorbed silently (founder-requested, 2026-07-14).
+- **Questions over assumptions** — an OPEN decision entry or a direct question, never a silent default.
+- **Reference intake is gated:** new articles/tools get one digest pass into an existing doc (DECISIONS / DESIGN_REVIEW_LENS / this file) with an adopt-or-park verdict — never open-ended absorption.
+
+## 8. Observability of the workflow itself
 
 - `docs/CONTENT_LOG.md` — the retro journal (kept from v1; it was v1's most valuable doc).
 - Task tracking in-session for multi-step phases; background tasks for CI/eval waits.
 - Memory (Claude Code auto-memory) holds durable working agreements; repo docs hold everything a new session must know — CLAUDE.md points to PRACTICES, DECISIONS, SYSTEM_DESIGN, this file.
-
-## 8. Standing communication rules
-
-- Deviation from wedge/scope gets flagged in the moment, not absorbed silently (founder-requested, 2026-07-14).
-- Questions over assumptions — an OPEN decision entry or a direct question, never a silent default.
-- Reference intake is gated: new articles/tools get one digest pass into an existing doc (DECISIONS / DESIGN_REVIEW_LENS / this file) with an adopt-or-park verdict — never open-ended absorption.
