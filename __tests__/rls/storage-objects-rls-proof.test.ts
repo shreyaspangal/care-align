@@ -15,15 +15,12 @@
  * to the caller's current_family_id() — there is no family_id column on
  * storage.objects itself to compare directly.
  *
- * Only INSERT and SELECT policies exist today. There are no UPDATE/DELETE
- * policies, so — by Postgres RLS's default-deny — nobody, including the
- * owning family, can currently update or delete an object in this bucket.
- * No app code calls storage update/remove yet (no delete-document action
- * exists), so this isn't blocking anything, but it means "B cannot
- * update/delete A's object" is not yet a meaningful isolation proof on its
- * own — it degrades to "nobody can," family A included. This file proves
- * that explicitly (see the `describe('no update/delete policy exists yet ...')`
- * block) so the gap is documented and visible instead of silently assumed.
+ * INSERT, SELECT and DELETE policies exist for the owning family (Rule 3:
+ * "Capture is sacred... Only the user deletes"). UPDATE (in-place overwrite)
+ * is deliberately NOT granted — swapping a file's bytes in place would leave
+ * document_explanations describing content that no longer exists; replacing
+ * a capture is delete-then-reupload, a new document_id and a fresh organize
+ * run. See supabase/migrations/20260908000001_storage_documents_rls_delete.sql.
  *
  * Needs a reachable Supabase (local stack in CI, .env.local locally) with
  * the `documents` bucket present — this file creates it if missing so a
@@ -151,6 +148,8 @@ beforeAll(async () => {
 }, 60_000)
 
 afterAll(async () => {
+  // pathA is deleted by the "family A can delete its own object" test itself;
+  // this is just a backstop in case that test fails before reaching removal.
   await ctx.admin.storage.from(BUCKET).remove([ctx.pathA])
   for (const id of ctx.userIds ?? []) {
     await ctx.admin.auth.admin.deleteUser(id)
@@ -216,20 +215,23 @@ describe("isolation — family B cannot touch family A's object", () => {
   })
 })
 
-describe('no UPDATE/DELETE policy exists yet — deny-all applies to everyone, not just family B', () => {
-  it("family A itself cannot remove its own object (no DELETE policy)", async () => {
-    const { data, error } = await ctx.a.storage.from(BUCKET).remove([ctx.pathA])
-    expect(error).toBeNull()
-    expect(data?.length ?? 0).toBe(0)
-
-    const { error: stillThereError } = await ctx.admin.storage.from(BUCKET).download(ctx.pathA)
-    expect(stillThereError, "A's object was deleted despite no DELETE policy").toBeNull()
-  })
-
-  it('family A itself cannot upsert-overwrite its own object (no UPDATE policy)', async () => {
+describe('no UPDATE policy — by design, not a gap (see migration 20260908000001)', () => {
+  it('family A itself cannot upsert-overwrite its own object', async () => {
     const { error } = await ctx.a.storage
       .from(BUCKET)
       .upload(ctx.pathA, new Uint8Array([9, 9, 9]), { upsert: true })
     expect(error, "A's own upsert succeeded despite no UPDATE policy").not.toBeNull()
+  })
+})
+
+describe('deletion — family A can delete its own object (Rule 3: only the user deletes)', () => {
+  // Runs last: it consumes pathA, which every test above depends on existing.
+  it("family A removes its own object", async () => {
+    const { data, error } = await ctx.a.storage.from(BUCKET).remove([ctx.pathA])
+    expect(error).toBeNull()
+    expect(data?.length ?? 0).toBe(1)
+
+    const { error: goneError } = await ctx.admin.storage.from(BUCKET).download(ctx.pathA)
+    expect(goneError, "A's object still exists after A's own delete").not.toBeNull()
   })
 })
