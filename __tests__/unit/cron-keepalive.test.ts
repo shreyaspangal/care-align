@@ -79,4 +79,17 @@ describe('GET /api/cron/keepalive', () => {
     const res = await GET(makeRequest('Bearer test-secret'))
     expect(res.status).toBe(200)
   })
+
+  // fetch() does not throw on a non-2xx response — a real bug found live
+  // (2026-09-08): a silent ping failure could look identical to success from
+  // this route's own perspective. Must be checked explicitly.
+  it('still returns ok, but the ping is checked, when healthchecks returns a non-OK status', async () => {
+    const logSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    setMock.mockResolvedValue('OK')
+    fetchMock.mockResolvedValue(new Response(null, { status: 404 }))
+    const res = await GET(makeRequest('Bearer test-secret'))
+    expect(res.status).toBe(200)
+    expect(logSpy).toHaveBeenCalled()
+    logSpy.mockRestore()
+  })
 })

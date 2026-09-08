@@ -7,14 +7,27 @@ const log = createLogger('api:cron:keepalive')
 // Ping healthchecks.io so a missed/failed run raises a real alert — Vercel's
 // own Alerts product is Pro-only (this project is on Hobby), and a dead-man's-
 // switch monitor works identically regardless of plan tier. Best-effort: a
-// monitoring-service outage must never fail the keepalive itself.
+// monitoring-service outage must never fail the keepalive itself — but a
+// failed/non-OK ping IS logged (not silently swallowed) so a "why did
+// healthchecks say down" question is answerable from our own logs, not just
+// guessed at. fetch() does not throw on a non-2xx response, so that has to
+// be checked explicitly — a bug in the first version of this function.
 async function pingHealthcheck(suffix: '' | '/fail') {
   const url = process.env.HEALTHCHECKS_PING_URL
   if (!url) return
   try {
-    await fetch(`${url}${suffix}`)
-  } catch {
-    // Monitoring is best-effort — swallow, the Upstash write already succeeded/failed on its own merits.
+    const res = await fetch(`${url}${suffix}`)
+    if (!res.ok) {
+      log.error('keepalive', 'healthcheck ping returned non-OK status', {
+        status: res.status,
+        suffix,
+      })
+    }
+  } catch (err) {
+    log.error('keepalive', 'healthcheck ping threw', {
+      error: err instanceof Error ? err.message : String(err),
+      suffix,
+    })
   }
 }
 
