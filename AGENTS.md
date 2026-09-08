@@ -47,6 +47,8 @@ The AI eval harness also landed (`eval/run.mjs`, `lib/eval/score.ts`, `docs/PRAC
 8. Visit brief — not started. The actual hero feature.
 9. Use it at one real doctor visit — the MVP exit criterion per `docs/BUILD_PLAN.md`'s own definition of done.
 
+**Phase 2 not formally closed — explicit founder override, 2026-09-08.** `PRACTICES.md` §8's own checklist requires the real eval set (10–15 real documents, dogfooded) before a phase closes; that step is still undone (bulk capture above exists to make it painless, but doing it is a separate step). Flagged this conflict directly; founder chose to start Phase 3 now rather than dogfood first, so the real eval set is a carried-forward gap, not a forgotten one — priority items #5/#6 below still apply whenever it's picked back up.
+
 **Still to build (Phase 2), not yet slotted into the sequence above:**
 - **The real eval set's documents.** 10–15 user-supplied, anonymised family documents must replace the three synthetic placeholders in `eval/cases/` (`eval/cases/README.md`) — folded into step 5/6 above, since the founder's own dogfood capture produces them as a byproduct. The public-repo exposure risk is resolved (D-016).
 - **Production model tier.** Anthropic vs. `gpt-5-mini` — deliberately deferred to just before production (founder decision, 2026-09-08); D-004 has the full cost/enforcement comparison ready when this is picked up.
