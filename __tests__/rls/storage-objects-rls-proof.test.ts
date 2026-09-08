@@ -22,38 +22,21 @@
  * a capture is delete-then-reupload, a new document_id and a fresh organize
  * run. See supabase/migrations/20260908000001_storage_documents_rls_delete.sql.
  *
- * Needs a reachable Supabase (local stack in CI, .env.local locally) with
- * the `documents` bucket present — this file creates it if missing so a
- * fresh local/CI stack (which provisions no buckets, see config.toml) works
- * without extra setup.
+ * Needs a reachable LOCAL Supabase instance (local stack in CI; locally,
+ * `npx supabase start` + `node scripts/write-test-env.mjs` — see
+ * lib/test/supabase-test-env.ts) with the `documents` bucket present — this
+ * file creates it if missing so a fresh local/CI stack (which provisions no
+ * buckets, see config.toml) works without extra setup. This test uploads
+ * and deletes real objects, so the loader refuses to run against anything
+ * that isn't a local URL — .env.local (this project's real production
+ * credentials) is never read.
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { loadSupabaseTestEnv } from '@/lib/test/supabase-test-env'
 
-function loadLocalEnv() {
-  if (process.env.NEXT_PUBLIC_SUPABASE_URL) return
-  try {
-    const raw = readFileSync(join(process.cwd(), '.env.local'), 'utf8')
-    for (const line of raw.split('\n')) {
-      const eq = line.indexOf('=')
-      if (eq === -1 || line.startsWith('#')) continue
-      const key = line.slice(0, eq).trim()
-      const value = line.slice(eq + 1).split('#')[0].trim()
-      if (!process.env[key]) process.env[key] = value
-    }
-  } catch {
-    // no .env.local — env must come from the environment (CI)
-  }
-}
-
-loadLocalEnv()
-
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const { url, anonKey, serviceKey } = loadSupabaseTestEnv()
 
 const BUCKET = 'documents'
 const runId = Date.now()

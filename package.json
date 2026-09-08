@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
+    "test:env": "node scripts/write-test-env.mjs",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "lint:stories": "node scripts/check-stories.mjs",

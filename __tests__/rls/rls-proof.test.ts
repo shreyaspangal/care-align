@@ -7,35 +7,17 @@
  * sanity block proves family A CAN touch its own rows, so "0 rows" never
  * passes because a policy is broken for everyone.
  *
- * Needs a reachable Supabase (local stack in CI, .env.local locally) — the
- * suite fails loudly when env is missing rather than skipping silently.
+ * Needs a reachable LOCAL Supabase instance (local stack in CI; locally,
+ * `npx supabase start` + `node scripts/write-test-env.mjs` — see
+ * lib/test/supabase-test-env.ts). These tests create and delete real users,
+ * so the loader refuses to run against anything that isn't a local URL —
+ * .env.local (this project's real production credentials) is never read.
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { loadSupabaseTestEnv } from '@/lib/test/supabase-test-env'
 
-function loadLocalEnv() {
-  if (process.env.NEXT_PUBLIC_SUPABASE_URL) return
-  try {
-    const raw = readFileSync(join(process.cwd(), '.env.local'), 'utf8')
-    for (const line of raw.split('\n')) {
-      const eq = line.indexOf('=')
-      if (eq === -1 || line.startsWith('#')) continue
-      const key = line.slice(0, eq).trim()
-      const value = line.slice(eq + 1).split('#')[0].trim()
-      if (!process.env[key]) process.env[key] = value
-    }
-  } catch {
-    // no .env.local — env must come from the environment (CI)
-  }
-}
-
-loadLocalEnv()
-
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const { url, anonKey, serviceKey } = loadSupabaseTestEnv()
 
 const runId = Date.now()
 const PASSWORD = 'rls-proof-test-password'
