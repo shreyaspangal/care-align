@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useState } from 'react'
+import Link from 'next/link'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,7 +13,7 @@ import { DOC_TYPES } from '@/lib/types/domain'
 import type { DocumentSummary } from '@/lib/dal/documents'
 import type { DocumentActionResult } from '@/actions/documents'
 
-const DOC_TYPE_LABELS: Record<(typeof DOC_TYPES)[number], string> = {
+export const DOC_TYPE_LABELS: Record<(typeof DOC_TYPES)[number], string> = {
   prescription: 'Prescription',
   lab_report: 'Lab report',
   imaging_report: 'Imaging report',
@@ -25,6 +26,7 @@ const DOC_TYPE_LABELS: Record<(typeof DOC_TYPES)[number], string> = {
 
 type DocumentCardProps = {
   document: DocumentSummary
+  profileId: string
   // Injected by the RSC page — never imported here (CLAUDE.md Hard Rule 9)
   retryOrganize: (documentId: string) => Promise<DocumentActionResult>
   updateDocumentDetails: (input: {
@@ -37,7 +39,12 @@ type DocumentCardProps = {
   }) => Promise<DocumentActionResult>
 }
 
-export function DocumentCard({ document, retryOrganize, updateDocumentDetails }: DocumentCardProps) {
+export function DocumentCard({
+  document,
+  profileId,
+  retryOrganize,
+  updateDocumentDetails,
+}: DocumentCardProps) {
   if (document.status === 'uploaded') {
     return <OrganizingCard />
   }
@@ -50,7 +57,7 @@ export function DocumentCard({ document, retryOrganize, updateDocumentDetails }:
       />
     )
   }
-  return <OrganizedCard document={document} />
+  return <OrganizedCard document={document} profileId={profileId} />
 }
 
 function OrganizingCard() {
@@ -69,7 +76,7 @@ function OrganizingCard() {
   )
 }
 
-function OrganizedCard({ document }: { document: DocumentSummary }) {
+function OrganizedCard({ document, profileId }: { document: DocumentSummary; profileId: string }) {
   return (
     <Card>
       <CardHeader>
@@ -78,7 +85,11 @@ function OrganizedCard({ document }: { document: DocumentSummary }) {
             {document.docType ? DOC_TYPE_LABELS[document.docType] : 'Organized'}
           </Badge>
         </div>
-        <CardTitle>{document.title ?? 'Untitled document'}</CardTitle>
+        <CardTitle>
+          <Link href={`/p/${profileId}/d/${document.id}`} className="hover:underline">
+            {document.title ?? 'Untitled document'}
+          </Link>
+        </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-1 text-sm text-muted-foreground">
         <span>{document.documentDate ?? 'Date unknown'}</span>
@@ -96,7 +107,7 @@ function OrganizedCard({ document }: { document: DocumentSummary }) {
 // Hard Rule 7: the client never sees a raw storage URL — this link only
 // ever points at the authenticated file route, which mints a short-lived
 // signed URL server-side after checking family membership.
-function ViewFileLink({ documentId }: { documentId: string }) {
+export function ViewFileLink({ documentId }: { documentId: string }) {
   return (
     <a
       href={`/api/documents/${documentId}/file`}

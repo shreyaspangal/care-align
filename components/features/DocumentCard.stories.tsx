@@ -20,6 +20,7 @@ const meta = {
   component: DocumentCard,
   args: {
     document: base,
+    profileId: 'profile-1',
     retryOrganize: fn(),
     updateDocumentDetails: fn(),
   },

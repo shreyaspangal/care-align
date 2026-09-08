@@ -180,6 +180,7 @@ export async function organizeDocument(documentId: string): Promise<void> {
       document_date: parsed.document_date,
       doctor_name: parsed.doctor_name,
       facility_name: parsed.facility_name,
+      patient_name_as_written: parsed.patient_name_as_written,
     })
     .eq('id', documentId)
   if (documentsError) {

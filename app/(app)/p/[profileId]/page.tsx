@@ -41,6 +41,7 @@ export default async function ProfileTimelinePage({
             <DocumentCard
               key={document.id}
               document={document}
+              profileId={profile.id}
               retryOrganize={retryOrganize}
               updateDocumentDetails={updateDocumentDetails}
             />
