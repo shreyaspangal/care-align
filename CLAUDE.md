@@ -56,7 +56,7 @@ Path alias `@/*` → repo root (no `src/`).
 
 14. **No dependency or architectural choice without a `docs/DECISIONS.md` entry** — context, options table, choice, why, revisit trigger. `Status: OPEN` entries block the phase that needs them (D-003 blocks capture).
 
-15. **V1 scope boundary.** NOT in V1 — do not build: medical advice of any kind, medication tracking/reminders-for-doses, regional-language UI, hospital/insurance discovery (V2), ABDM integration, per-profile logins, sharing outside the family, natural-language ask (V1.5, behind the north-star trigger).
+15. **V1 scope boundary.** NOT in V1 — do not build: medical advice of any kind, medication **tracking** (dose logging, intake events, adherence streaks) or reminders-for-doses, regional-language UI, hospital/insurance discovery (V2), ABDM integration, per-profile logins, sharing outside the family, natural-language ask (V1.5, behind the north-star trigger). **Explicitly permitted, and not the same thing:** a current-medications list rendered verbatim from the most recently captured prescription (no dose log, no reminder, no new user input it didn't already extract) — that is displaying what a document already says, not the tracking feature this rule excludes. Full reasoning: `docs/DECISIONS.md` D-017.
 
 ---
 
@@ -82,6 +82,7 @@ Path alias `@/*` → repo root (no `src/`).
 | Build sequence + exit criteria | `docs/BUILD_PLAN.md` |
 | Anti-patterns (scar tissue) | `docs/ANTI_PATTERNS.md` |
 | Free-tier keepalive + monitoring pattern (portable to other projects) | `docs/PLAYBOOK_FREE_TIER_KEEPALIVE_MONITORING.md` |
+| Market/competitive research behind D-017 (**private, gitignored — not in this public repo**) | `docs/private/MARKET_OPPORTUNITY_RESEARCH.md` |
 | Claude Code workflow (subagents, models, skills) | `docs/AGENTIC_WORKFLOW.md` |
 | Design review lens (Impeccable + PDP checklists) | `docs/DESIGN_REVIEW_LENS.md` |
 | Session retro journal | `docs/CONTENT_LOG.md` |
