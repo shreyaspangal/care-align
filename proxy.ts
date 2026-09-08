@@ -53,11 +53,15 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Everything except static assets, the favicon, and the PostHog ingestion
-  // proxy — /ingest must reach the next.config rewrite unauthenticated, or
-  // every logged-out event (register/login pageviews) 307s into /login and
-  // is silently dropped. Also spares a getUser() round-trip per event batch.
+  // Everything except static assets, the favicon, the PostHog ingestion
+  // proxy, and the cron keepalive route — /ingest must reach the next.config
+  // rewrite unauthenticated, or every logged-out event (register/login
+  // pageviews) 307s into /login and is silently dropped (also spares a
+  // getUser() round-trip per event batch). /api/cron/keepalive must reach
+  // its own CRON_SECRET check unauthenticated — Vercel's scheduler sends no
+  // session cookie, so without this exclusion the cron always 307s to
+  // /login before the route ever runs (D-015).
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|ingest|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|ingest|api/cron|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
