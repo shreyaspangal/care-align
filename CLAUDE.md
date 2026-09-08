@@ -81,6 +81,7 @@ Path alias `@/*` → repo root (no `src/`).
 | **India regulatory compliance — rule checklist + enforcement pointers + user-facing trust copy** | `docs/INDIA_COMPLIANCE.md` |
 | Build sequence + exit criteria | `docs/BUILD_PLAN.md` |
 | Anti-patterns (scar tissue) | `docs/ANTI_PATTERNS.md` |
+| Free-tier keepalive + monitoring pattern (portable to other projects) | `docs/PLAYBOOK_FREE_TIER_KEEPALIVE_MONITORING.md` |
 | Claude Code workflow (subagents, models, skills) | `docs/AGENTIC_WORKFLOW.md` |
 | Design review lens (Impeccable + PDP checklists) | `docs/DESIGN_REVIEW_LENS.md` |
 | Session retro journal | `docs/CONTENT_LOG.md` |

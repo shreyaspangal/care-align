@@ -174,6 +174,8 @@ Item shapes (verbatim-or-null on every sub-field — absent on the document = `n
 
 ## D-015 — Keepalive cron to stop Upstash's free-tier auto-deletion — **RESOLVED 2026-09-08**
 
+> This entry is the decision record — context, options, why. The portable step-by-step pattern (route code, `vercel.json`, the proxy-exclusion gotcha, the healthchecks.io setup, everything to reuse this in another project) lives in **`docs/PLAYBOOK_FREE_TIER_KEEPALIVE_MONITORING.md`** — written to be copied elsewhere, not restated here.
+
 **Context:** the upload rate limiter's fail-open fix (2026-09-07, `app/api/uploads/sign/route.ts`, ANTI_PATTERNS #13) went live and, when stress-tested in production the next day, showed every single rate-limit check silently failing open — `error: 'fetch failed'` reaching Upstash. Root cause: Upstash's free-tier plan deletes a database after 14 days with **no REST API traffic**, and this project's Redis had gone idle long enough to be deleted. This had been invisible before the fail-open fix because rate limiting was previously hard-disabled in code (see ANTI_PATTERNS #13's original bypass) — the fix didn't cause the outage, it's what made a pre-existing, silent infra gap observable. A new free database was created and its credentials rotated into Vercel; the recurring risk (any 14-day idle stretch re-triggers deletion) still needed a fix, not just a one-time recovery.
 
 | Option | For | Against |
