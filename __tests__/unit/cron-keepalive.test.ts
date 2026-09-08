@@ -20,20 +20,28 @@ function makeRequest(authHeader?: string) {
 
 describe('GET /api/cron/keepalive', () => {
   const originalSecret = process.env.CRON_SECRET
+  const originalHealthcheckUrl = process.env.HEALTHCHECKS_PING_URL
+  const fetchMock = vi.fn()
 
   beforeEach(() => {
     vi.clearAllMocks()
     process.env.CRON_SECRET = 'test-secret'
+    process.env.HEALTHCHECKS_PING_URL = 'https://hc-ping.com/test-uuid'
+    fetchMock.mockResolvedValue(new Response(null, { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
   })
 
   afterEach(() => {
     process.env.CRON_SECRET = originalSecret
+    process.env.HEALTHCHECKS_PING_URL = originalHealthcheckUrl
+    vi.unstubAllGlobals()
   })
 
   it('rejects a request with no Authorization header', async () => {
     const res = await GET(makeRequest())
     expect(res.status).toBe(401)
     expect(setMock).not.toHaveBeenCalled()
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('rejects a request with the wrong secret', async () => {
@@ -42,16 +50,33 @@ describe('GET /api/cron/keepalive', () => {
     expect(setMock).not.toHaveBeenCalled()
   })
 
-  it('pings Upstash and succeeds with the correct secret', async () => {
+  it('pings Upstash and the healthcheck success URL with the correct secret', async () => {
     setMock.mockResolvedValue('OK')
     const res = await GET(makeRequest('Bearer test-secret'))
     expect(res.status).toBe(200)
     expect(setMock).toHaveBeenCalledWith('carealig:keepalive', expect.any(Number))
+    expect(fetchMock).toHaveBeenCalledWith('https://hc-ping.com/test-uuid')
   })
 
-  it('returns 500 without throwing when Upstash is unreachable', async () => {
+  it('returns 500 and pings the healthcheck /fail URL when Upstash is unreachable', async () => {
     setMock.mockRejectedValue(new Error('fetch failed'))
     const res = await GET(makeRequest('Bearer test-secret'))
     expect(res.status).toBe(500)
+    expect(fetchMock).toHaveBeenCalledWith('https://hc-ping.com/test-uuid/fail')
+  })
+
+  it('still succeeds if HEALTHCHECKS_PING_URL is unset (monitoring is optional)', async () => {
+    delete process.env.HEALTHCHECKS_PING_URL
+    setMock.mockResolvedValue('OK')
+    const res = await GET(makeRequest('Bearer test-secret'))
+    expect(res.status).toBe(200)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('still returns ok when the healthcheck ping itself fails', async () => {
+    setMock.mockResolvedValue('OK')
+    fetchMock.mockRejectedValue(new Error('healthchecks.io unreachable'))
+    const res = await GET(makeRequest('Bearer test-secret'))
+    expect(res.status).toBe(200)
   })
 })
