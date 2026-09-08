@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getDocumentDetail } from '@/lib/dal/documents'
+import { deleteDocument } from '@/actions/documents'
 import { DocumentDetail } from '@/components/features/DocumentDetail'
 
 export const metadata: Metadata = { title: 'Document — CareAlign' }
@@ -26,7 +27,7 @@ export default async function DocumentDetailPage({
       >
         ← Back to timeline
       </Link>
-      <DocumentDetail document={document} />
+      <DocumentDetail document={document} deleteDocument={deleteDocument} />
     </main>
   )
 }

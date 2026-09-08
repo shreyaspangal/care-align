@@ -178,3 +178,57 @@ export async function updateDocumentDetails(
   revalidatePath(`/p/${data.profile_id}`)
   return { success: true }
 }
+
+// Rule 3: "Capture is sacred... Only the user deletes." This is that
+// user-initiated path — the pipeline never calls this.
+export async function deleteDocument(documentId: string): Promise<DocumentActionResult> {
+  const parsed = z.uuid().safeParse(documentId)
+  if (!parsed.success) {
+    return { success: false, error: 'Invalid document' }
+  }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
+    return { success: false, error: 'Not signed in' }
+  }
+
+  // Row first: documents_family RLS already scopes .delete() to the
+  // caller's family, so a cross-family documentId matches 0 rows (the
+  // .select().maybeSingle() is what makes that visible, not silent —
+  // ANTI_PATTERNS #1). If the row delete succeeds but the storage remove
+  // below fails, the orphaned file is unreachable to anyone (Hard Rule 7 —
+  // no route exists without the row); the reverse order would risk a
+  // document that's still listed but whose file is already gone.
+  const { data: deleted, error: deleteError } = await supabase
+    .from('documents')
+    .delete()
+    .eq('id', documentId)
+    .select('id, profile_id, blob_key')
+    .maybeSingle()
+  if (deleteError || !deleted) {
+    log.error('deleteDocument', 'row delete failed', {
+      documentId,
+      error: deleteError?.message,
+    })
+    return { success: false, error: 'Could not delete — document not found' }
+  }
+
+  const { error: storageError } = await supabase.storage
+    .from('documents')
+    .remove([deleted.blob_key])
+  if (storageError) {
+    // The document is already gone from the family's perspective — the row
+    // delete above is what the user asked for. An orphaned file with no
+    // route pointing at it is a cleanup problem, not a correctness one.
+    log.error('deleteDocument', 'storage remove failed (row already deleted)', {
+      documentId,
+      error: storageError.message,
+    })
+  }
+
+  revalidatePath(`/p/${deleted.profile_id}`)
+  return { success: true }
+}

@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { fn } from 'storybook/test'
 import { DocumentDetail } from './DocumentDetail'
 import type { DocumentDetail as DocumentDetailData } from '@/lib/dal/documents'
 
@@ -54,8 +55,14 @@ const base: DocumentDetailData = {
 const meta = {
   title: 'Features/DocumentDetail',
   component: DocumentDetail,
+  // DeleteDocumentButton uses next/navigation's useRouter (Next 16 App
+  // Router) — required whenever a story renders a component that does.
+  parameters: {
+    nextjs: { appDirectory: true },
+  },
   args: {
     document: base,
+    deleteDocument: fn(),
   },
   decorators: [
     (Story) => (

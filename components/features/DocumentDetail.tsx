@@ -1,17 +1,21 @@
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { DocumentDetail as DocumentDetailData } from '@/lib/dal/documents'
+import type { DocumentActionResult } from '@/actions/documents'
 import { DOC_TYPE_LABELS, ViewFileLink } from './DocumentCard'
+import { DeleteDocumentButton } from './DeleteDocumentButton'
 
 type DocumentDetailProps = {
   document: DocumentDetailData
+  // Injected by the RSC page — never imported here (CLAUDE.md Hard Rule 9)
+  deleteDocument: (documentId: string) => Promise<DocumentActionResult>
 }
 
 // The "explain" half of "organize and explain" (CLAUDE.md — what we're
 // building). Prior to this component, document_explanations was written by
 // the AI pipeline and rendered on zero screens — this is the first surface
 // that shows it.
-export function DocumentDetail({ document }: DocumentDetailProps) {
+export function DocumentDetail({ document, deleteDocument }: DocumentDetailProps) {
   return (
     <div className="flex flex-col gap-6">
       <Card>
@@ -113,6 +117,14 @@ export function DocumentDetail({ document }: DocumentDetailProps) {
           )}
         </>
       )}
+
+      <div className="border-t pt-4">
+        <DeleteDocumentButton
+          documentId={document.id}
+          profileId={document.profileId}
+          deleteDocument={deleteDocument}
+        />
+      </div>
     </div>
   )
 }
