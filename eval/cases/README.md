@@ -4,7 +4,7 @@
 
 **Every case in this directory is fake.** The documents are generated PDFs with `SYNTHETIC TEST DOCUMENT - NOT A REAL MEDICAL RECORD` printed on the first line; every name, date, value and facility in them is invented. They exist to prove the harness mechanism runs end to end and that the scoring math is right — nothing more.
 
-They are **not** the eval set. `docs/PRACTICES.md` §6 and `docs/BUILD_PLAN.md` Phase 2 both specify **10–15 real, founder-supplied, anonymised family documents** with hand-authored expected extractions. Those don't exist yet. Until they do:
+They are **not** the eval set. `docs/PRACTICES.md` §6 and `docs/BUILD_PLAN.md` Phase 2 both specify **10–15 real, user-supplied, anonymised family documents** with hand-authored expected extractions. Those don't exist yet. Until they do:
 
 - **No score from this directory is evidence about model or prompt quality.** Three clean, machine-generated, English, digital-text PDFs are the easiest possible input. Real inputs are phone photos of creased Indian prescriptions with handwriting, stamps, glare, and mixed scripts.
 - Every `expected.json` carries `"placeholder": true`, and the runner prints a warning while that is true of all cases.
@@ -12,9 +12,9 @@ They are **not** the eval set. `docs/PRACTICES.md` §6 and `docs/BUILD_PLAN.md` 
 
 ## Swapping in the real set
 
-Replace, don't append: delete these three directories once real cases exist. Each real case is a directory containing the anonymised document, an `expected.json` (`"placeholder": false`), and a `cached-response.json` recorded via `pnpm eval -- --record`. See `eval/README.md`.
+Replace, don't append: delete these three directories once real cases exist. Each real case is a directory named `real-*` (see "Repo-privacy decision" below — this prefix is what keeps it out of git) containing the anonymised document, an `expected.json` (`"placeholder": false`), and a `cached-response.json` recorded via `pnpm eval -- --record`. See `eval/README.md`.
 
-Anonymisation is the founder's call per document — the harness does nothing to strip identifiers, and these files are committed to the repo.
+Anonymisation is a per-document judgment call. Unlike these synthetic placeholders, **real case directories are never committed** — see below.
 
 ## What each placeholder exercises
 
@@ -45,6 +45,10 @@ These are genuine recordings of what the configured model returned for these fix
 
 Both fixes follow the same rule, restated here because it will come up again: read the phrase, decide honestly whether it judges a specific value / gives new instruction or just describes/defines the document's own content, and only narrow the pattern with a comment explaining why — never silently accept a real leak. Full research and grounding for every pattern category: `docs/DECISIONS.md` D-014.
 
-## Before real documents replace these — a repo-privacy decision, not yet made
+## Repo-privacy decision — RESOLVED (D-016, 2026-09-08)
 
-**This repository is public.** The "Swapping in the real set" section above says real anonymised documents get committed directly, with anonymisation being "the founder's call per document" — but committing to a public repo means one missed identifier (a UHID in a header, a phone number in a footer, an unredacted MRN in a PDF's text layer) becomes permanent and public: `git rm` doesn't remove it from history, and forks/caches make a rewrite unreliable besides. **Decide this before the first real document is added**, not after — options include making the repo private, keeping `eval/cases/` out of git entirely (a local-only path, `.gitignore`'d like `eval/results/`), or a separate private fixtures repo. Whatever is chosen, update this file with the decision.
+**This repository is public.** Real anonymised documents becoming permanent, public data on one missed redaction (a UHID in a header, a phone number in a footer, an unredacted MRN in a PDF's text layer) was an open risk — `git rm` doesn't remove it from history, and forks/caches make a rewrite unreliable besides.
+
+**Chosen:** real case directories are never committed. `.gitignore` excludes `eval/cases/real-*/` — any directory under this path named with a `real-` prefix stays local-only, automatically, with no per-case gitignore entry to remember. Synthetic placeholders keep the `synthetic-` prefix and stay tracked as before. Full reasoning and rejected alternatives (making the whole repo private, a separate private fixtures repo): `docs/DECISIONS.md` D-016.
+
+**Practical consequence:** the real eval set lives only on whichever machine(s) actually run `pnpm eval -- --record` against real documents — there is no shared/synced copy today. CI continues running only the synthetic, cached smoke test (`pnpm eval:smoke`), same as now. Revisit this if a second person ever needs to run the real eval and can't easily get the documents another way (Slack/Drive/etc. — not this repo).

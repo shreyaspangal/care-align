@@ -46,7 +46,7 @@ The one destructive phase. Everything here is a `git rm`, so it's fully reversib
 5. **File serving route:** auth check → 302 to short-lived Supabase Storage signed URL (v1 pattern, new backend).
 6. **Prompt:** explain-never-advise hard-constrained; verbatim-or-null; store `prompt_version`.
 
-**Test focus:** an **eval set** — 10–15 real family documents (founder-supplied, anonymized) with expected extractions; run against the organize step and score field accuracy + boundary violations (any advisory language = hard fail). This eval is the regression suite for every future prompt change (applied-llms practice).
+**Test focus:** an **eval set** — 10–15 real family documents (user-supplied, anonymized) with expected extractions; run against the organize step and score field accuracy + boundary violations (any advisory language = hard fail). This eval is the regression suite for every future prompt change (applied-llms practice).
 
 ## Phase 3 — Timeline & retrieval (~2 days)
 

@@ -33,7 +33,7 @@ Upload-failure client-side retry-with-backoff also landed (`lib/capture/with-ret
 The AI eval harness also landed (`eval/run.mjs`, `lib/eval/score.ts`, `docs/PRACTICES.md` §6): scores field accuracy (split into fabrications vs. omissions) and a Hard-Rule-1 boundary check against three synthetic placeholder documents; `pnpm eval` (live) and `pnpm eval:smoke` (cached, CI-wired, no API key) both green. The boundary-check categories are grounded in verified Indian regulatory research, not just internal judgment — `docs/DECISIONS.md` D-014 is the research record, `docs/INDIA_COMPLIANCE.md` is the live rule checklist + enforcement pointers + draft user-facing trust copy. Two real false positives were found and fixed while building this (see D-014).
 
 **Still to build (Phase 2):**
-- **The real eval set.** 10–15 founder-supplied, anonymised family documents must replace the three synthetic placeholders in `eval/cases/` before any score is evidence about model quality (`eval/cases/README.md`). **Open decision, must be resolved before this happens:** this repo is public — committing real documents here risks permanent public PHI on one missed redaction (`docs/INDIA_COMPLIANCE.md` item 6).
+- **The real eval set.** 10–15 user-supplied, anonymised family documents must replace the three synthetic placeholders in `eval/cases/` before any score is evidence about model quality (`eval/cases/README.md`). The public-repo exposure risk is now resolved (D-016: `real-*`-prefixed case directories are gitignored, never committed) — the documents themselves still don't exist yet, that's the remaining work.
 - **`AI_MODEL_TIER` swap.** Still points at a free dev-tier OpenRouter model — must move to a schema-enforcing provider (Anthropic/OpenAI) before the eval set is run for real scoring or any pre-launch testing (DECISIONS.md D-004 hard gate).
 - **Child-profile verifiable parental consent** (DPDP Act s.9) — no consent-capture step exists in profile creation today (`docs/INDIA_COMPLIANCE.md` item 7).
 
@@ -47,9 +47,9 @@ The AI eval harness also landed (`eval/run.mjs`, `lib/eval/score.ts`, `docs/PRAC
 | 3 | Timeline + retrieval (visit brief mocked FIRST) | pending |
 | 4 | Visit brief + appointments + reminders | pending |
 | 5 | Onboarding, landing, polish | pending |
-| 6 | Dogfood with the founder's family | pending |
+| 6 | Dogfood with the users's family | pending |
 
-**Blocked on founder:** nothing currently.
+**Blocked:** nothing currently.
 
 ## The Non-Negotiables (full list: CLAUDE.md)
 

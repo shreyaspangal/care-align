@@ -26,7 +26,7 @@
 Subagents start **cold** — they re-derive context. So the rule is: parallelize only tasks that are (a) self-contained, (b) fully specified in writing, and (c) independent along the commit-layer boundaries (schema / DAL / actions / components / pages). Examples per phase:
 
 - **Phase 1:** main thread writes migration + RLS; in parallel, Sonnet builds profile-picker UI from the design spec, Haiku generates story files.
-- **Phase 2:** main thread owns organize prompt + `after()` pipeline; Sonnet builds the capture client component against the written contract; Haiku builds eval fixtures from founder-supplied documents.
+- **Phase 2:** main thread owns organize prompt + `after()` pipeline; Sonnet builds the capture client component against the written contract; Haiku builds eval fixtures from user-supplied documents.
 - **Anti-pattern (don't):** parallel agents editing the same layer, or spawning an agent for a task cheaper to do inline than to specify.
 
 Long-running verification (CI runs, eval suites) runs as background tasks; the main thread continues and reconciles on completion.

@@ -58,3 +58,8 @@ docs/research/extracts/
 
 # eval run history — local/ephemeral output, not repo state (PRACTICES §6)
 eval/results/
+
+# real anonymised founder eval documents — never committed to this public repo
+# (D-016). Convention: real case directories are named "real-*", synthetic
+# placeholders stay "synthetic-*" and stay tracked/committed as-is.
+eval/cases/real-*/

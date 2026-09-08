@@ -304,7 +304,7 @@ if (live) {
 if (cases.every((evalCase) => evalCase.placeholder)) {
   console.log(
     'NOTE: every case is a SYNTHETIC placeholder. The eval set is not real until\n' +
-      '      10-15 anonymised founder documents replace these (eval/cases/README.md).'
+      '      10-15 anonymised user documents replace these (eval/cases/README.md).'
   )
 }
 console.log('')

@@ -12,7 +12,7 @@
 // `node eval/make-fixtures.mjs` after editing any `source.txt`.
 //
 // Scope: ASCII, one page, no wrapping. Keep fixture lines short. Real
-// founder-supplied documents will be photos/scans and will not go through here.
+// user-supplied documents will be photos/scans and will not go through here.
 
 import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import path from 'node:path'

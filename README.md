@@ -30,7 +30,7 @@ This is a greenfield rebuild in the same repo. The original "Patient Coordinator
 | 3 | Timeline + retrieval (visit brief mocked first) |
 | 4 | Visit brief + appointments + reminders |
 | 5 | Onboarding, landing, polish |
-| 6 | Dogfood with the founder's family |
+| 6 | Dogfood with the user's family |
 
 Current status: `AGENTS.md`. Full sequence and exit criteria: `docs/BUILD_PLAN.md`.
 
