@@ -45,17 +45,19 @@ function toSummary(row: DocumentRow): DocumentSummary {
   }
 }
 
-// Ordered by capture time for now (newest upload on top) — the exact
-// event-date timeline ordering (documents_timeline_idx, coalescing
-// document_date with the IST capture day) is Phase 3's job, alongside
-// keyset pagination. Every row still belongs to one profile, so this is
-// correct for Phase 2's "did my capture land and organize" purpose.
+// Ordered by document_date (the medical event date, Rule 2 verbatim-or-null)
+// descending, newest first — that's what makes this a timeline rather than
+// an upload log. Rows with no document_date (nullsFirst: false) sort to the
+// bottom, since there's no event date to place them by; captured_at is the
+// tiebreaker both for same-dated documents and for the undated group, so
+// ordering stays stable and upload-recency-ordered within each bucket.
 export const getDocuments = cache(async (profileId: string): Promise<DocumentSummary[]> => {
   const supabase = await createClient()
   const { data } = await supabase
     .from('documents')
     .select(DOCUMENT_COLUMNS)
     .eq('profile_id', profileId)
+    .order('document_date', { ascending: false, nullsFirst: false })
     .order('captured_at', { ascending: false })
   return (data ?? []).map(toSummary)
 })
