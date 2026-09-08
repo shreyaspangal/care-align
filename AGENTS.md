@@ -47,6 +47,11 @@ The AI eval harness also landed (`eval/run.mjs`, `lib/eval/score.ts`, `docs/PRAC
 8. Visit brief — not started. The actual hero feature.
 9. Use it at one real doctor visit — the MVP exit criterion per `docs/BUILD_PLAN.md`'s own definition of done.
 
+**Phase 3 started 2026-09-08, per `docs/BUILD_PLAN.md`'s own ordering rule ("design the last moment first" — mock the visit brief before the timeline, since the timeline exists to feed it):**
+- **`DESIGN.md`** + `.impeccable/design.json` generated from the existing token system (`app/globals.css`) via the `impeccable` skill — north star "The Care Folder," with two rules worth knowing: the No-Severity Rule (color never signals medical severity — a "HIGH" lab flag stays plain ink text, matching Rule 1) and the Ring-Not-Shadow Rule (flat cards use a hairline ring, shadows reserved for sheets/dialogs — already how the code was built, now written down).
+- **`components/features/VisitBrief.tsx`** — the visit brief mock: profile header, medications-as-written (each one source-cited back to the document it came from), latest document per type, appointments. Presentational only, fed by realistic mock data (`VisitBrief.stories.tsx`) — no DAL/action wiring yet, that's Phase 4's job. Print-friendly: verified live via Chromium print-media emulation that no color carries meaning a black-and-white printout would lose.
+- Skipped writing a `PRODUCT.md` (the impeccable skill's own convention file) — its content already lives in `CLAUDE.md`/`docs/DECISIONS.md` D-017, and a second file restating the same facts would violate this project's own single-source-of-truth doc discipline.
+
 **Phase 2 not formally closed — explicit founder override, 2026-09-08.** `PRACTICES.md` §8's own checklist requires the real eval set (10–15 real documents, dogfooded) before a phase closes; that step is still undone (bulk capture above exists to make it painless, but doing it is a separate step). Flagged this conflict directly; founder chose to start Phase 3 now rather than dogfood first, so the real eval set is a carried-forward gap, not a forgotten one — priority items #5/#6 below still apply whenever it's picked back up.
 
 **Still to build (Phase 2), not yet slotted into the sequence above:**
@@ -61,7 +66,7 @@ The AI eval harness also landed (`eval/run.mjs`, `lib/eval/score.ts`, `docs/PRAC
 | 0 | Teardown, docs, CI, chassis rename | done (2026-07-15) |
 | 1 | Foundation: schema, RLS, auth, profiles, PostHog; D-003 resolved | done (2026-07-17) |
 | 2 | Capture + organize pipeline + eval set | in progress (capture + organize + timeline cards built + browser-verified; file route + eval set next) |
-| 3 | Timeline + retrieval (visit brief mocked FIRST) | pending |
+| 3 | Timeline + retrieval (visit brief mocked FIRST) | in progress (visit brief mocked 2026-09-08, `DESIGN.md` written; timeline pagination + search next) |
 | 4 | Visit brief + appointments + reminders | pending |
 | 5 | Onboarding, landing, polish | pending |
 | 6 | Dogfood with the users's family | pending |
