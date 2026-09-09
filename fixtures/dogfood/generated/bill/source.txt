@@ -1,0 +1,28 @@
+GENERATED FOR DOGFOODING - SYNTHETIC, NOT A REAL BILL
+
+City Care Hospital, Sector 15, Gurugram 122001
+GSTIN: 06AAACC1234F1Z5
+
+TAX INVOICE / HOSPITAL BILL
+
+Bill No: CCH/2026/04471          Date: 22/05/2026
+Patient: Neha Verma               UHID: CCH-88213
+Admission Date: 18/05/2026        Discharge Date: 22/05/2026
+
+Item                              Qty    Rate      Amount
+Room Rent (General Ward, 4 days)  4      1500.00   6000.00
+Doctor Consultation Fee           4      800.00    3200.00
+Nursing Charges                   4      500.00    2000.00
+Blood Test - CBC                  1      450.00    450.00
+IV Fluids and Medicines           -      -         3850.00
+Pharmacy Charges                  -      -         2100.00
+
+Subtotal                                            17600.00
+GST (5%)                                            880.00
+Total Amount                                        18480.00
+Amount Paid                                         18480.00
+Balance Due                                         0.00
+
+Payment Mode: UPI
+
+Authorized Signatory

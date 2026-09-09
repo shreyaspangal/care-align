@@ -1,0 +1,25 @@
+GENERATED FOR DOGFOODING - SYNTHETIC, NOT A REAL VACCINATION RECORD
+
+IMMUNIZATION CARD
+Little Stars Pediatric Clinic, Koramangala, Bengaluru 560034
+
+Child Name: Aarav Krishnan
+Date of Birth: 14/02/2025
+Mother's Name: Priya Krishnan
+Father's Name: Suresh Krishnan
+
+VACCINE RECORD
+
+Vaccine          Dose    Date          Batch No.
+BCG              -       16/02/2025    BCG-2291
+OPV-0            -       16/02/2025    OPV-0087
+Hepatitis B-1    -       16/02/2025    HEPB-4471
+OPV-1            1       14/04/2025    OPV-1123
+Pentavalent-1    1       14/04/2025    PENTA-5501
+Rotavirus-1      1       14/04/2025    ROTA-2290
+OPV-2            2       12/06/2025    OPV-1288
+Pentavalent-2    2       12/06/2025    PENTA-5602
+
+Next Due: Pentavalent-3, OPV-3, Rotavirus-2 on 10/08/2025
+
+Vaccinated by: Dr. Meera Pillai

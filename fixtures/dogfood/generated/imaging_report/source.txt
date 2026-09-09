@@ -1,0 +1,29 @@
+GENERATED FOR DOGFOODING - SYNTHETIC, NOT A REAL IMAGING REPORT
+
+Sunshine Diagnostic Imaging Centre
+201, MG Road, Pune 411001
+NABL Accredited Lab
+
+RADIOLOGY REPORT
+
+Patient: Sunita Deshmukh          Age/Sex: 45/F
+Ref. Doctor: Dr. Vikram Shah
+Date of Study: 03/07/2026
+Study: Ultrasound Whole Abdomen
+
+FINDINGS:
+Liver - normal size and echotexture, no focal lesion.
+Gallbladder - single calculus of 8mm noted in gallbladder lumen.
+Wall not thickened. No pericholecystic fluid.
+Pancreas - normal.
+Kidneys - both kidneys normal in size, no calculus, no hydronephrosis.
+Spleen - normal.
+Urinary bladder - normal, well distended.
+No free fluid in abdomen.
+
+IMPRESSION:
+Cholelithiasis (single 8mm gallbladder calculus).
+Rest of abdominal viscera unremarkable.
+
+Dr. Prakash Nair, MD Radiology
+Reg. No. MH-45213

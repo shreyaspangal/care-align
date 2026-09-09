@@ -59,6 +59,12 @@ docs/research/extracts/
 # eval run history — local/ephemeral output, not repo state (PRACTICES §6)
 eval/results/
 
+# dogfood fixture documents — third-party copyrighted PDFs (sourced/) and
+# local working files, not repo state. Manifest of what's here (tagged
+# SOURCED/GENERATED, no real PHI) is tracked at docs/DOGFOOD_FIXTURES.md.
+fixtures/dogfood/*/*/*.pdf
+fixtures/dogfood/sourced/
+
 # real anonymised eval documents — never committed to this public repo
 # (D-016). Convention: real case directories are named "real-*", synthetic
 # placeholders stay "synthetic-*" and stay tracked/committed as-is.

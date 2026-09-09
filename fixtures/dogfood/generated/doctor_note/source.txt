@@ -1,0 +1,21 @@
+GENERATED FOR DOGFOODING - SYNTHETIC, NOT A REAL CLINICAL NOTE
+
+Dr. Sameer Khan, MD (Pediatrics)
+Kidscare Clinic, Salt Lake, Kolkata
+
+Clinical Note
+
+Patient: Ishaan Banerjee, 6 yrs
+Visit: OPD
+
+Presented with fever (2 days), mild cough, no breathing difficulty.
+On examination: throat mildly congested, chest clear, temp 100.8 F.
+
+Assessment: Viral upper respiratory tract infection.
+
+Advised:
+- Paracetamol syrup 5ml SOS for fever, not more than 4 times a day
+- Warm fluids, rest
+- Review after 3 days if fever persists or breathing difficulty develops
+
+No investigations advised at this visit.
