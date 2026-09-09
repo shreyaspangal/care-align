@@ -2,7 +2,10 @@ import 'server-only'
 
 import * as z from 'zod'
 import { createClient } from '@/lib/supabase/server'
+import { createLogger } from '@/lib/logger'
 import type { DocumentSummary } from './documents'
+
+const log = createLogger('dal:timeline')
 
 // Keyset-paginated timeline for one profile (Phase 3 item 1,
 // docs/BUILD_PLAN.md). Documents-only for now — BUILD_PLAN's own spec calls
@@ -88,7 +91,10 @@ export async function getTimelinePage(
     query = query.or(beforeCursorFilter(cursor))
   }
 
-  const { data } = await query
+  const { data, error } = await query
+  if (error) {
+    log.error('getTimelinePage', 'query failed', { profileId, error: error.message })
+  }
   const rows = (data as DocumentPageRow[] | null) ?? []
 
   const items: TimelineItem[] = rows.map((row) => ({
