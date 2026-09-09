@@ -13,6 +13,7 @@ const base: DocumentDetailData = {
   doctorName: 'Dr. R. K. Sharma, MD',
   facilityName: 'Apollo Clinic, Bangalore',
   capturedAt: '2026-03-12T12:00:00Z',
+  eventDate: '2026-03-12',
   profileId: 'profile-1',
   patientNameAsWritten: 'Ramesh Pangal',
   explanation: {

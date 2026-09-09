@@ -14,10 +14,11 @@ export type DocumentSummary = {
   doctorName: string | null
   facilityName: string | null
   capturedAt: string
+  eventDate: string
 }
 
 const DOCUMENT_COLUMNS =
-  'id, status, doc_type, title, title_is_guessed, document_date, doctor_name, facility_name, captured_at'
+  'id, status, doc_type, title, title_is_guessed, document_date, doctor_name, facility_name, captured_at, event_date'
 
 type DocumentRow = {
   id: string
@@ -29,6 +30,7 @@ type DocumentRow = {
   doctor_name: string | null
   facility_name: string | null
   captured_at: string
+  event_date: string
 }
 
 function toSummary(row: DocumentRow): DocumentSummary {
@@ -42,23 +44,24 @@ function toSummary(row: DocumentRow): DocumentSummary {
     doctorName: row.doctor_name,
     facilityName: row.facility_name,
     capturedAt: row.captured_at,
+    eventDate: row.event_date,
   }
 }
 
-// Ordered by document_date (the medical event date, Rule 2 verbatim-or-null)
-// descending, newest first — that's what makes this a timeline rather than
-// an upload log. Rows with no document_date (nullsFirst: false) sort to the
-// bottom, since there's no event date to place them by; captured_at is the
-// tiebreaker both for same-dated documents and for the undated group, so
-// ordering stays stable and upload-recency-ordered within each bucket.
+// event_date (generated column, supabase/migrations/20260908000002) =
+// document_date when known, else the IST capture day — the coalesce
+// documents_timeline_idx's own comment always intended, now a real column
+// so it can be ordered on directly (Rule 2's verbatim-or-null document_date
+// stays untouched; event_date is purely a display/ordering derivative).
+// id is the tiebreaker for two documents landing on the same event_date.
 export const getDocuments = cache(async (profileId: string): Promise<DocumentSummary[]> => {
   const supabase = await createClient()
   const { data } = await supabase
     .from('documents')
     .select(DOCUMENT_COLUMNS)
     .eq('profile_id', profileId)
-    .order('document_date', { ascending: false, nullsFirst: false })
-    .order('captured_at', { ascending: false })
+    .order('event_date', { ascending: false })
+    .order('id', { ascending: false })
   return (data ?? []).map(toSummary)
 })
 

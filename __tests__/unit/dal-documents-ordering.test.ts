@@ -8,7 +8,7 @@ const selectMock = vi.fn()
 const fromMock = vi.fn()
 
 const rows = [
-  { id: 'no-date-old', status: 'organized', doc_type: 'lab_report', title: null, title_is_guessed: false, document_date: null, doctor_name: null, facility_name: null, captured_at: '2026-01-01T00:00:00Z' },
+  { id: 'no-date-old', status: 'organized', doc_type: 'lab_report', title: null, title_is_guessed: false, document_date: null, doctor_name: null, facility_name: null, captured_at: '2026-01-01T00:00:00Z', event_date: '2026-01-01' },
 ]
 
 function buildChain() {
@@ -29,18 +29,16 @@ vi.mock('@/lib/supabase/server', () => ({
 const { getDocuments } = await import('@/lib/dal/documents')
 
 describe('getDocuments ordering', () => {
-  it('orders by document_date (nulls last) then captured_at, not upload time alone', async () => {
+  it('orders by the event_date generated column, id as tiebreaker', async () => {
     await getDocuments('11111111-1111-4111-8111-111111111111')
 
-    expect(orderMock).toHaveBeenNthCalledWith(1, 'document_date', {
-      ascending: false,
-      nullsFirst: false,
-    })
-    expect(orderMock).toHaveBeenNthCalledWith(2, 'captured_at', { ascending: false })
+    expect(orderMock).toHaveBeenNthCalledWith(1, 'event_date', { ascending: false })
+    expect(orderMock).toHaveBeenNthCalledWith(2, 'id', { ascending: false })
   })
 
-  it('maps rows with a null document_date to "unknown" honestly (Rule 2)', async () => {
+  it('maps rows with a null document_date to "unknown" honestly (Rule 2), independent of event_date', async () => {
     const result = await getDocuments('11111111-1111-4111-8111-111111111111')
     expect(result[0].documentDate).toBeNull()
+    expect(result[0].eventDate).toBe('2026-01-01')
   })
 })

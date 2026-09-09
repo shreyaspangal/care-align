@@ -13,6 +13,7 @@ const base: DocumentSummary = {
   doctorName: null,
   facilityName: null,
   capturedAt: '2026-09-06T12:00:00Z',
+  eventDate: '2026-09-06',
 }
 
 const meta = {
