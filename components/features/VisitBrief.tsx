@@ -55,7 +55,15 @@ type VisitBriefProps = {
 
 function formatDate(iso: string | null): string {
   if (!iso) return 'Date unknown'
-  return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+  // Explicit timeZone, not the runtime's default: a bare date like
+  // document_date parses as UTC midnight, so a viewer or server west of
+  // India would otherwise see the previous day (V1 is India-first).
+  return new Date(iso).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'Asia/Kolkata',
+  })
 }
 
 function formatAge(dob: string | null): string | null {
@@ -160,7 +168,7 @@ export function VisitBrief({ brief }: VisitBriefProps) {
               <li key={appt.id} className="text-sm">
                 <span className="font-medium">{appt.title}</span>
                 {appt.status === 'upcoming' && (
-                  <span className="ml-2 text-xs text-ai-base print:text-muted-foreground">
+                  <span className="ml-2 text-xs text-accent-base print:text-muted-foreground">
                     upcoming
                   </span>
                 )}
