@@ -76,6 +76,7 @@ North-star check (monthly, PostHog): **retrieval moments per family per month** 
 
 1. `tsc` / `lint:arch` / `vitest` / stories — green locally AND in CI
 2. RLS proof tests green (Phase 1+); eval score ≥ previous (Phase 2+) — check `AI_MODEL_TIER` is not pointed at a dev-only free model before running the eval for real (DECISIONS.md D-004's revisit trigger)
+2a. `npx supabase migration list` — `Local` and `Remote` columns match. A migration committed and applied locally but never pushed is invisible to every check above (ANTI_PATTERNS #15) and fails silently: the app degrades feature-by-feature instead of erroring.
 3. New events from the tracking plan firing (verified in PostHog live view)
 3a. Opened the deployed URL (not just localhost) and walked this phase's happy path — everything above verifies the local/CI environment, never the one users actually touch
 4. Diagrams current with this phase's changes
