@@ -5,8 +5,9 @@ import { getProfile } from '@/lib/dal/profiles'
 import { getTimelinePage } from '@/lib/dal/timeline'
 import { createDocument, retryOrganize, updateDocumentDetails } from '@/actions/documents'
 import { loadMoreTimelineItems } from '@/actions/timeline'
+import { searchDocuments } from '@/actions/search'
 import { CaptureButton } from '@/components/features/CaptureButton'
-import { TimelineList } from '@/components/features/TimelineList'
+import { SearchableTimeline } from '@/components/features/SearchableTimeline'
 
 export const metadata: Metadata = { title: 'Timeline — CareAlign' }
 
@@ -32,20 +33,15 @@ export default async function ProfileTimelinePage({
         </Link>
       </header>
       <CaptureButton profileId={profile.id} createDocument={createDocument} />
-      {firstPage.items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No documents yet — capture the first one above.
-        </p>
-      ) : (
-        <TimelineList
-          profileId={profile.id}
-          initialItems={firstPage.items}
-          initialCursor={firstPage.nextCursor}
-          loadMoreTimelineItems={loadMoreTimelineItems}
-          retryOrganize={retryOrganize}
-          updateDocumentDetails={updateDocumentDetails}
-        />
-      )}
+      <SearchableTimeline
+        profileId={profile.id}
+        initialItems={firstPage.items}
+        initialCursor={firstPage.nextCursor}
+        loadMoreTimelineItems={loadMoreTimelineItems}
+        retryOrganize={retryOrganize}
+        updateDocumentDetails={updateDocumentDetails}
+        searchDocuments={searchDocuments}
+      />
     </main>
   )
 }

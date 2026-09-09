@@ -17,10 +17,13 @@ export type DocumentSummary = {
   eventDate: string
 }
 
-const DOCUMENT_COLUMNS =
+// Exported for lib/dal/search.ts, which needs the same row shape when
+// fetching explanation-matched documents by id — one shared definition
+// rather than a third hand-copied version (timeline.ts already has its own).
+export const DOCUMENT_COLUMNS =
   'id, status, doc_type, title, title_is_guessed, document_date, doctor_name, facility_name, captured_at, event_date'
 
-type DocumentRow = {
+export type DocumentRow = {
   id: string
   status: DocumentStatus
   doc_type: DocType | null
@@ -33,7 +36,7 @@ type DocumentRow = {
   event_date: string
 }
 
-function toSummary(row: DocumentRow): DocumentSummary {
+export function toSummary(row: DocumentRow): DocumentSummary {
   return {
     id: row.id,
     status: row.status,

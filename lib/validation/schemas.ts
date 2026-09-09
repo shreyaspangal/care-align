@@ -47,6 +47,14 @@ export const UpdateDocumentDetailsSchema = z.object({
 })
 export type UpdateDocumentDetailsInput = z.infer<typeof UpdateDocumentDetailsSchema>
 
+// Phase 3 item 3 — search. websearch_to_tsquery tolerates most free text
+// (quotes, "or", "-exclude") on its own; only length is worth gating here.
+export const SearchQuerySchema = z.object({
+  profileId: z.uuid(),
+  query: z.string().trim().min(1).max(200),
+})
+export type SearchQueryInput = z.infer<typeof SearchQuerySchema>
+
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
 export const RegisterSchema = z.object({
