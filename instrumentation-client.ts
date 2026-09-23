@@ -5,5 +5,6 @@ posthog.init(process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN!, {
   // Behind the first-party proxy, toolbar/app links need the real UI origin.
   ui_host: 'https://eu.posthog.com',
   defaults: '2026-05-30',
-  capture_exceptions: true,
+  // `next dev` errors (Turbopack HMR, dev overlay) must not open production issues.
+  capture_exceptions: process.env.NODE_ENV === 'production',
 })
